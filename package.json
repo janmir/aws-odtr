@@ -1,0 +1,19 @@
+{
+  "name": "aws-odtr",
+  "version": "1.0.0",
+  "description": "Time record automation.",
+  "main": "handler.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/janmir/aws-odtr.git"
+  },
+  "author": "janmir",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/janmir/aws-odtr/issues"
+  },
+  "homepage": "https://github.com/janmir/aws-odtr#readme"
+}
