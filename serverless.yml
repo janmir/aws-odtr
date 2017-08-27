@@ -16,5 +16,6 @@ functions:
     description: Login automation
     environment:
       DEBUG: true
+      DEPLOY: false
     tags:
       type: work
