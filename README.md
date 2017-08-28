@@ -1,13 +1,26 @@
-#Time Record Automation
-###Task Track Yeah!
+# Time Record Automation
+### Task Tracker Yeah :smiley:!
 - [x] Yaml schema read local.
 - [x] Yaml schema read S3 bucket.
 - [x] Yaml parse to json.
-- [ ] Handle 'Login' action.
-    - [ ] 'If' condition check. 
-        - [x] Queries
-            - [x] Type validation.
-            - [x] Format validation.
-        - [ ] Variables
-            - [ ] Assigned check.
-            - [ ] Value check.
+- [ ] Handle *Login* action.
+- [ ] Handle *Check* action.
+- [ ] Handle *Time-in-out* action.
+- [ ] Handle *Time-in* action.
+- [ ] Handle *Time-out* action.
+- [ ] *If* condition check. 
+    - [x] Queries
+        - [x] Type validation.
+        - [x] Format validation.
+    - [ ] Variables
+        - [ ] Assigned check.
+        - [ ] Value check.
+- [ ] *Then* Perform action.
+    - [ ] Components
+        - [ ] CSS selector support.
+        - [ ] Value injection.
+        - [ ] Value retrieval.
+        - [ ] Form submission.
+        - [ ] Hyperlink follow.
+        - [ ] Hyperlink check.
+    - [ ] Action, handle calling of other actions.
