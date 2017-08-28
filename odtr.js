@@ -3,6 +3,8 @@
 const yaml = require('js-yaml');
 const aws = require('aws-sdk');
 const fs = require('fs');
+const Browser = require("zombie");
+var schema_cache = null;
 
 module.exports = {
     events: null,
@@ -14,8 +16,10 @@ module.exports = {
     main: function(self, schema){
         const act = self.events.path.action;
 
+        //cache schema
+        schema_cache = schema;
+
         //log value
-        console.log("----------Schema-----------");
         console.log(schema);
         console.log("------Action: "+ act +"-------");
 
@@ -40,6 +44,7 @@ module.exports = {
             });
 
             console.log("----------------------------");
+            self.componentHandler();
             self.callback(null, {"":""});  
 
         } catch (err) {
@@ -90,7 +95,7 @@ module.exports = {
         let querieString = self.events.querystring;
 
         switch(check){
-            case "query":{
+            case "querystring":{
                 //init globals
                 if(self.globals.query == null){
                     self.globals["query"] = {};
@@ -101,6 +106,7 @@ module.exports = {
                 //Check every action
                 jsonKeys.forEach(function(key) {
                     console.log("---"+key);
+
                     let obj = json[key];
                     let value = querieString[key];
                     let type = obj.type;
@@ -166,9 +172,29 @@ module.exports = {
             }break;
         }
     },
-    urlHandler: function(){},
-    componentHandler: function(){},
-    variableHandler: function(){}, //Move variable validation here    
+    urlHandler: function(){
+
+    },
+    componentHandler: function(){
+        let url = "https://odtr.awsys-i.com/jp-odtr/DTRMainLoginv2x.aspx";
+        let browser = new Browser();
+        browser.visit(url, function(err) {
+            try{
+                browser.assert.success("Can't access remote server.");
+            }catch(err){
+                console.log(err.message);
+            }
+        })
+    },
+    variableHandler: function(){
+
+    },
+    queryHandler: function(){
+         
+    },
+    notificationHandler: function(){
+        
+    },  
     validate: function(type, match, value){
         if(value){
             //Type -> number | string
@@ -210,35 +236,40 @@ module.exports = {
         const bucket = 'janmir';
 
         try{
-            if(!deploy_flag){
-                console.log("//From Local");
-    
-                //Get from local file
-                let file = fs.readFileSync(__dirname +'/' + filename, 'utf8')
-                let config = yaml.safeLoad(file);
-                let indentedJson = JSON.stringify(config, null, 4);
-    
-                callback(self, JSON.parse(indentedJson));
+            if(schema_cache != null){
+                console.log("//From Cache");
+                callback(self, schema_cache);
             }else{
-                console.log("//From Bucket");
-    
-                //Get from S3
-                let s3 = new aws.S3();
-                var params = {
-                    Bucket: bucket,
-                    Key: filename
+                if(!deploy_flag){
+                    console.log("//From Local");
+        
+                    //Get from local file
+                    let file = fs.readFileSync(__dirname +'/' + filename, 'utf8')
+                    let config = yaml.safeLoad(file);
+                    let indentedJson = JSON.stringify(config, null, 4);
+        
+                    callback(self, JSON.parse(indentedJson));
+                }else{
+                    console.log("//From Bucket");
+        
+                    //Get from S3
+                    let s3 = new aws.S3();
+                    var params = {
+                        Bucket: bucket,
+                        Key: filename
+                    }
+                    s3.getObject(params, function(err, data) {
+                        if(!err){ 
+                            let file = data.Body.toString('utf-8');
+                            let config = yaml.safeLoad(file);
+                            let indentedJson = JSON.stringify(config, null, 4);
+                
+                            callback(self, JSON.parse(indentedJson));
+                        }else{
+                            self.callback(err, null);
+                        } 
+                    });
                 }
-                s3.getObject(params, function(err, data) {
-                    if(!err){ 
-                        let file = data.Body.toString('utf-8');
-                        let config = yaml.safeLoad(file);
-                        let indentedJson = JSON.stringify(config, null, 4);
-            
-                        callback(self, JSON.parse(indentedJson));
-                    }else{
-                        self.callback(err, null);
-                    } 
-                });
             }
         } catch (err) {
             console.log("----------------------------");            

@@ -16,7 +16,7 @@ functions:
     description: Login automation
     environment:
       DEBUG: true
-      DEPLOY: true
+      DEPLOY: false
       BUCKET: janmir
       FILE: schema.yaml
     tags:

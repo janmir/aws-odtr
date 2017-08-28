@@ -15,7 +15,8 @@ module.exports.main = (events, context, callback) => {
   //log value
   console.log("----------Events-----------");
   console.log(events);
+  console.log("----------Schema-----------");
   
-  //Parse Yaml file & pass to main handler
+  //Parse Yaml file & pass to main handler & enjoi!
   odtr.loadSchema(process.env.DEPLOY === 'true', odtr.main);
 };
