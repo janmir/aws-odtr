@@ -166,6 +166,9 @@ module.exports = {
             }break;
         }
     },
+    urlHandler: function(){},
+    componentHandler: function(){},
+    variableHandler: function(){}, //Move variable validation here    
     validate: function(type, match, value){
         if(value){
             //Type -> number | string
