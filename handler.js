@@ -1,38 +1,21 @@
 'use strict';
 
 const odtr = require('./odtr');
-const aws = require('aws-sdk');
 
-module.exports.main = (events, context, callback) => {
+module.exports.main = (events, context, callback) => {  
+  //init globals
+  odtr.callback = callback;
+  odtr.events = events;
+  odtr.bucket = process.env.BUCKET;
+  odtr.file = process.env.FILE;
+  
   //update logging
   odtr.shouldLog(process.env.DEBUG === 'true');
 
-  try {
-    //Parse Yaml file
-    let schema = odtr.loadSchema(process.env.DEPLOY === 'true');
-
-    //JSON keys
-    let jsonKeys = Object.keys(schema); 
-
-    //Check every action
-    jsonKeys.forEach(function(action) {
-      
-      console.log("Action: " + action);
-      
-      switch(action){
-        case "login":
-        case "check":
-        case "time-in-out":{
-          odtr.doAction(schema[action], events);
-        }break;
-        case "error":{
-
-        }break;
-      }
-    });
-  } catch (e) {
-    console.error(e.message);
-  }
-
-  callback(null, {event:events});
+  //log value
+  console.log("----------Events-----------");
+  console.log(events);
+  
+  //Parse Yaml file & pass to main handler
+  odtr.loadSchema(process.env.DEPLOY === 'true', odtr.main);
 };

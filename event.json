@@ -1,5 +1,7 @@
 {
-    "key1":"value",
-    "key2":"value",
-    "key3":"value"
-}
+    "path" : {"action" : "login"},
+    "querystring" : {
+            "password" : "pass",
+            "username" : "jan.mir"
+    }
+  }

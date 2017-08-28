@@ -16,6 +16,14 @@ functions:
     description: Login automation
     environment:
       DEBUG: true
-      DEPLOY: false
+      DEPLOY: true
+      BUCKET: janmir
+      FILE: schema.yaml
     tags:
       type: work
+  
+package:
+  exclude:
+    - schema.yaml
+    - README.md
+    - event.json
