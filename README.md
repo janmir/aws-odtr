@@ -2,6 +2,7 @@
 ### Task Tracker Yeah :smiley:!
 - [x] Yaml schema read local.
 - [x] Yaml schema read S3 bucket.
+- [x] Yaml schema read from cache.
 - [x] Yaml parse to json.
 - [ ] Handle **Login** action.
 - [ ] Handle **Check** action.
@@ -25,8 +26,8 @@
         - [ ] Hyperlink follow.
         - [ ] Hyperlink check.
     - [ ] Action, handle calling of other actions.
-- [ ] **That** Perform action & Condition check.
+- [ ] **That** Perform action, Result check & set required values.
 
 ### Disclaimer
-> :cat2: This is a personal project of mine, I just need somewhere to store and track it. Sorry if it may not
-be of any use & may do any harm to you.
+> :cat: This is a personal project of mine, I just need somewhere to store and track it. Sorry if it may not
+be of any use & may do any harm to you.:cat2:
