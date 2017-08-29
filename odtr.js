@@ -4,6 +4,7 @@ const yaml = require('js-yaml');
 const aws = require('aws-sdk');
 const fs = require('fs');
 const Browser = require("zombie");
+const sync = require('deasync');
 var schema_cache = null;
 
 /*
@@ -26,7 +27,9 @@ module.exports = {
     callback: null,
     bucket:null,
     file:null,
-    globals:{browser:null},
+    globals:{
+        browser:null
+    },
 
     main: function(self, schema){
         const act = self.events.path.action;
@@ -82,9 +85,6 @@ module.exports = {
             });
         }
 
-        //Print global values
-        console.log(self.globals);        
-
         //Do actions
         if(action.then){
             console.log("-Then:");
@@ -100,9 +100,22 @@ module.exports = {
         }
 
         //Create output
-        if(action.then){
+        if(action.that){
             console.log("-That:");
+
+            //Check every action
+            let jsonKeys = Object.keys(action.that);
+            jsonKeys.forEach(function(key) {
+                console.log("--"+key);
+
+                //Call If handler
+                self.doThat(self, action.that, key);
+            });
         }
+
+        //Print global values
+        console.log("------------GLOBAL------------");
+        console.log(self.globals);                        
     },
     doIf: function(self, action, check){
         var schema = action[check];
@@ -121,47 +134,153 @@ module.exports = {
         }
     },
     doThen: function(self, action, check){
-        var json = action[check];
-        let jsonKeys = Object.keys(json);
+        var schema = action[check];
 
         switch(check){
-            case "component":{
-                //Check every action
-                jsonKeys.forEach(function(key) {
-                    console.log("---"+key);
-                });
+            case "components":{
+                self.componentsHandler(self, schema);
             }break;
             case "variable":{
+                self.variableHandler(self, schema);                
             }break;
-            case "action":{
+            case "actions":{
+                self.actionsHandler(self, schema);
+            }break;
+            case "url":{
+                self.urlHandler(self, schema);
             }break;
         }
     },
     doThat: function(self, action, check){
-        var json = action[check];
-        let jsonKeys = Object.keys(json);
-
+        var schema = action[check];
+        
         switch(check){
-            case "component":{
-                //Check every action
-                jsonKeys.forEach(function(key) {
-                    console.log("---"+key);
-                });
+            case "variable":{
+                self.variableHandler(self, schema);                
             }break;
-            case "action":{
+            case "actions":{
+                self.actionsHandler(self, schema);
+            }break;
+            case "url":{
+                self.urlHandler(self, schema);
             }break;
         }
     },
-    componentHandler: function(){
-        let url = "https://odtr.awsys-i.com/jp-odtr/DTRMainLoginv2.aspx";
-        let browser = new Browser();
-        browser.visit(url, function(err) {
-            try{
-                browser.assert.success("Can't access remote server.");
-            }catch(err){
-                console.log(err.message);
+    actionsHandler: function(self, schema){
+        //Check every variable
+        Object.keys(schema).forEach(function(key) {
+            console.log("---" + key);
+        });
+    },
+    /*
+    - Handle globals
+    - Check if component exist
+    - Set component values
+    - Get component values
+    */
+    componentsHandler: function(self, schema){
+        //init globals
+        if(self.globals.components == null){
+            self.globals["components"] = {};
+        }
+        
+        //init browser
+        let browser = self.getBrowser(self);
+
+        //test
+        console.log(browser.html());
+        browser
+        .fill('input[name="username"]', "admin")
+        .fill('input[name="password"]', "1234")
+        .pressButton('input[value="Login"]', function(){
+            console.log("<New Location: "+browser.location.href+">");
+            console.log(browser.html());
+        });
+        
+        //Check every action
+        schema.forEach(function(key) {
+            let selector = key.selector;
+            let name = key.name;
+            let type = key.type;
+            let value = key.value;
+            let action = key.action;
+            let error = key.error ? key.error : "Can't locate " + selector + ".";
+
+            console.log("---[" + name + ", " + selector + ", "+ type + ", " + value + ", " + action + "]");
+            
+            if(browser.location){
+                //Assert
+                browser.assert.element(selector, error);
+
+                switch(action){
+                    case "get":{
+                        var val = " ";
+                        //Prepares value
+                        if(type == "input"){
+                            val = browser.field(selector).value;
+                        }else{
+                            val = browser.text(selector);
+                            //val = browser.html(selector);
+                        }
+                        console.log("<Get: '"+val+"'>");
+                        //Gets a value and save it to globals.components.<name>
+                        self.globals.components[name] = val;
+                    }break;
+                    case "set":{
+                        //get value
+                        var val = value;
+                        let re = /\b[a-z]+\.[a-z]+/g;
+                        if(value.match(re)){
+                            console.log("<Match>");
+                            try {
+                                val = eval("module.exports.globals." + value);
+                            } catch (error) {
+                                throw new Error(error.message);
+                            }
+                        }
+
+                        //Set the value
+                        if(type == "input"){
+                            console.log("<Set: '"+val+"'>");
+                            browser.fill(selector, val);
+                        }else{
+                            //using native innerHTML
+                            browser.querySelector(selector).innerHTML = val;
+                        }
+                    }break;
+                    case "submit":{
+                        var done = false;
+
+                        console.log("<Submitting Form...>"); 
+                        
+                        /*browser.pressButton(selector, function(){
+                            console.log("<New Location: "+browser.location.href+">");
+                            self.globals.url.current = browser.location.href;
+                            done = true;
+
+                            //console.log(browser.html());
+                            //console.log(browser.statusCode);
+                        });*/
+
+                        var form = browser.querySelector('aspnetForm');
+                        //console.log(form.name);
+                        form.submit();
+                        browser.wait(function() {
+                            console.log("Finished!");
+                            console.log("<New Location: "+browser.location.href+">");
+
+                            done = true;
+                        });
+
+                        //loop while its not yet done.
+                        console.log("<Waiting for form to finish...>");
+                        //sync.loopWhile(function(){return !done;});
+                    }break;
+                }
+            }else{
+                throw new Error("Can't access the remote location.");
             }
-        })
+        });        
     },
     /*
     - Handle globals
@@ -181,17 +300,35 @@ module.exports = {
             let error = schema.error ? schema.error : " ";
             let path = schema.path;
             let action = schema.action;
+
+            console.log("---[" + path + ", "+ action + ", " + error + "]");
     
             switch(action){
                 case "assert":{
                     //Get the current browser location
                     //Check if same as given path
-                    console.log("here");
-                    browser.assert.url(path, error);
+                    if(browser.location){
+                        browser.assert.url(path, error);
+                    }else{
+                        throw new Error(error);
+                    }
                 }break;
                 case "visit":{
-                    //Visit the path given
+                    //Have to convert this to async
+                    var done = false;
 
+                    //Visit the path given
+                    browser.visit(path, function() {
+                        //browser.assert.success(error);
+                        console.log("<New Location: "+browser.location.href+">");
+                        self.globals.url.current = browser.location.href;
+
+                        done = true;
+                    });
+
+                    //loop while its not yet done.
+                    console.log("<Waiting for async task to finish...>");
+                    sync.loopWhile(function(){return !done;});
                 }break;
             }
         }
@@ -207,11 +344,10 @@ module.exports = {
             self.globals["variable"] = {};
         }
 
-        let jsonKeys = Object.keys(schema);
         let parentError = schema.error ? schema.error : " ";
         
         //Check every variable
-        jsonKeys.forEach(function(name) {
+        Object.keys(schema).forEach(function(name) {
             //skip error
             if(name == "error"){
                 return;
@@ -303,10 +439,11 @@ module.exports = {
             //Type -> number | string
             if(type){
                 //check number - int, no support for float yet
-                let re = /\b\d+/g;
+                let re = /^\d+\b/;
                 let isNum = value.match(re);
                 let value_type = !isNum ? 'string': 'number';
     
+                console.log("<Type: " +value_type+ ">");
                 if(value_type === type){ //type === typeof value
                   //do nothing  
                 }else{
@@ -316,7 +453,7 @@ module.exports = {
 
             //Match -> regex pattern
             if(match){
-                match = new RegExp(match, "g");
+                match = new RegExp(match);
                 if(value.match(match)){ //match === match value
                     //do nothing  
                 }else{
@@ -328,7 +465,7 @@ module.exports = {
     },
     getBrowser: function(self){
         if(self.globals.browser == null){
-            console.log("Creating New Browser Object.");
+            console.log("<Creating New Browser Object.>");
             self.globals.browser = new Browser();
         }
         return self.globals.browser;
