@@ -6,12 +6,27 @@ const fs = require('fs');
 const Browser = require("zombie");
 var schema_cache = null;
 
+/*
+Universal Data Structure
+{
+    path:{
+        action:""
+    },
+    querystring:{
+        key:value
+    },
+    variable:{
+        key:value
+    }
+}
+*/
+
 module.exports = {
     events: null,
     callback: null,
     bucket:null,
     file:null,
-    globals:{},
+    globals:{browser:null},
 
     main: function(self, schema){
         const act = self.events.path.action;
@@ -44,7 +59,7 @@ module.exports = {
             });
 
             console.log("----------------------------");
-            self.componentHandler();
+            //self.componentHandler();
             self.callback(null, {"":""});  
 
         } catch (err) {
@@ -90,53 +105,18 @@ module.exports = {
         }
     },
     doIf: function(self, action, check){
-        var json = action[check];
-        let jsonKeys = Object.keys(json);
+        var schema = action[check];
         let querieString = self.events.querystring;
 
         switch(check){
             case "querystring":{
-                //init globals
-                if(self.globals.query == null){
-                    self.globals["query"] = {};
-                }
-
-                let queryKeys = Object.keys(querieString);
-
-                //Check every action
-                jsonKeys.forEach(function(key) {
-                    console.log("---"+key);
-
-                    let obj = json[key];
-                    let value = querieString[key];
-                    let type = obj.type;
-                    let match = obj.match;
-                    let required = obj.required;
-
-                    //Check if queries are in event
-                    let contains = queryKeys.indexOf(key) >= 0;
-                    if(!required || contains){
-                        //Value validity check
-                        if(self.validate(type, match, value)){
-                            //If Query is found Add to global
-                            self.globals.query[key] = value;
-                        }else{
-                            throw new Error("Invalid query request string value.");
-                        }
-                    }else{
-                        throw new Error("Key '"+key+"' is missing from query request string.");
-                    }
-                });
+                self.queryHandler(self, schema, querieString);
             }break;
             case "variable":{
-                //Check every action
-                jsonKeys.forEach(function(type) {
-                    console.log("---"+type);
-                    
-                    //Check if variable is in globals
-
-                    //Check if value is same as given
-                });        
+                self.variableHandler(self, schema);
+            }break;
+            case "url":{
+                self.urlHandler(self, schema);
             }break;
         }
     },
@@ -172,11 +152,8 @@ module.exports = {
             }break;
         }
     },
-    urlHandler: function(){
-
-    },
     componentHandler: function(){
-        let url = "https://odtr.awsys-i.com/jp-odtr/DTRMainLoginv2x.aspx";
+        let url = "https://odtr.awsys-i.com/jp-odtr/DTRMainLoginv2.aspx";
         let browser = new Browser();
         browser.visit(url, function(err) {
             try{
@@ -186,16 +163,142 @@ module.exports = {
             }
         })
     },
-    variableHandler: function(){
+    /*
+    - Handle globals
+    - Check document url
+    - Goto url
+    */
+    urlHandler: function(self, schema){
+        //init globals
+        if(self.globals.url == null){
+            self.globals["url"] = {};
+        }
+
+        //Check if browser object is not null
+        let browser = self.getBrowser(self);
+
+        if(browser){
+            let error = schema.error ? schema.error : " ";
+            let path = schema.path;
+            let action = schema.action;
+    
+            switch(action){
+                case "assert":{
+                    //Get the current browser location
+                    //Check if same as given path
+                    console.log("here");
+                    browser.assert.url(path, error);
+                }break;
+                case "visit":{
+                    //Visit the path given
+
+                }break;
+            }
+        }
+    },
+    /*
+    - Handle globals
+    - Variable value set
+    - Variable value check
+    */
+    variableHandler: function(self, schema){
+        //init globals
+        if(self.globals.variable == null){
+            self.globals["variable"] = {};
+        }
+
+        let jsonKeys = Object.keys(schema);
+        let parentError = schema.error ? schema.error : " ";
+        
+        //Check every variable
+        jsonKeys.forEach(function(name) {
+            //skip error
+            if(name == "error"){
+                return;
+            }
+            
+            //Init variable properties
+            let variable = schema[name];
+            let value = variable.value;
+            let type = variable.type ?variable.type : 'set';
+            let error = variable.error;
+            
+            console.log("---"+ name + "[" + value + ", "+ type + "]");
+
+            switch(type){
+                case "set":{
+                    self.globals.variable[name] = value;
+                }break;
+                case "assert":{
+                    //Check if variable is in globals
+                    //Check if value is same as given value
+                    if(self.globals.variable[name] && self.globals.variable[name] == value){
+                        //Nothing to do my dear.
+                    }else{
+                        throw new Error(parentError +" "+ error);
+                    }
+                }break;
+            }
+
+        });        
 
     },
-    queryHandler: function(){
-         
+    /*
+    - Handle globals
+    - Required query checking
+    - Query type checking
+    - Query format checking
+    */
+    queryHandler: function(self, schema, querieString){
+        //init globals
+        if(self.globals.querystring == null){
+            self.globals["querystring"] = {};
+        }
+
+        //Get keys
+        let queryKeys = Object.keys(querieString);
+        let jsonKeys = Object.keys(schema);
+        let parentError = schema.error ? schema.error : "No error message";
+        
+        //Check every action
+        jsonKeys.forEach(function(key) {
+            //skip error
+            if(key == "error"){
+                return;
+            }
+
+            let query = schema[key];
+            let value = querieString[key];
+            let type = query.type;
+            let match = query.match;
+            let required = query.required;
+            let error = query.error ? query.error : "No error message";
+            
+            console.log("---"+key+"['"+ value + "'," + type + "," + match + "," + required + ",'" + error +"']");
+            
+            //Check if queries are in event
+            let contains = queryKeys.indexOf(key) >= 0;
+            if(!required || contains){
+                //Value validity check
+                if(self.validateString(type, match, value)){
+                    //If Query is found Add to global
+                    self.globals.querystring[key] = value;
+                }else{
+                    throw new Error(error);
+                }
+            }else{
+                throw new Error(parentError);
+            }
+        });
     },
     notificationHandler: function(){
         
     },  
-    validate: function(type, match, value){
+    /*
+    - Check if string is of type
+    - Check if string is of pattern/format
+    */
+    validateString: function(type, match, value){
         if(value){
             //Type -> number | string
             if(type){
@@ -207,8 +310,7 @@ module.exports = {
                 if(value_type === type){ //type === typeof value
                   //do nothing  
                 }else{
-                    throw new Error("Value '" + value + "' has type '" + 
-                    value_type + "' expected is " + type + ".");
+                    return false;
                 }
             }
 
@@ -218,13 +320,19 @@ module.exports = {
                 if(value.match(match)){ //match === match value
                     //do nothing  
                 }else{
-                    throw new Error("Value '" + value + "' does not match with expected format '" + 
-                    match + "'.");
+                    return false;
                 }
             }
         }
         return true;
-    },        
+    },
+    getBrowser: function(self){
+        if(self.globals.browser == null){
+            console.log("Creating New Browser Object.");
+            self.globals.browser = new Browser();
+        }
+        return self.globals.browser;
+    },
     shouldLog: function(log_flag){
         if(!log_flag){
             console.log = function() {};
