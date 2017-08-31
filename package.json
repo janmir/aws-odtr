@@ -19,6 +19,7 @@
   "dependencies": {
     "aws-sdk": "^2.104.0",
     "deasync": "^0.1.10",
+    "fast-html-parser": "^1.0.1",
     "js-yaml": "^3.9.1",
     "zombie": "^5.0.7"
   }
