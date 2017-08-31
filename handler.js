@@ -8,6 +8,7 @@ module.exports.main = (events, context, callback) => {
   odtr.events = events;
   odtr.bucket = process.env.BUCKET;
   odtr.file = process.env.FILE;
+  odtr.deploy = process.env.DEPLOY === 'true';
   
   //update logging
   odtr.shouldLog(process.env.DEBUG === 'true');
@@ -18,5 +19,5 @@ module.exports.main = (events, context, callback) => {
   console.log("----------Schema-----------");
   
   //Parse Yaml file & pass to main handler & enjoi!
-  odtr.loadSchema(process.env.DEPLOY === 'true', odtr.main);
+  odtr.loadSchema(odtr.main);
 };

@@ -3,7 +3,7 @@
 const yaml = require('js-yaml');
 const aws = require('aws-sdk');
 const fs = require('fs');
-const Browser = require("zombie");
+const request = require("request");
 const sync = require('deasync');
 var schema_cache = null;
 
@@ -23,6 +23,7 @@ Universal Data Structure
 */
 
 module.exports = {
+    deploy: false,
     events: null,
     callback: null,
     bucket:null,
@@ -184,19 +185,6 @@ module.exports = {
             self.globals["components"] = {};
         }
         
-        //init browser
-        let browser = self.getBrowser(self);
-
-        //test
-        console.log(browser.html());
-        browser
-        .fill('input[name="username"]', "admin")
-        .fill('input[name="password"]', "1234")
-        .pressButton('input[value="Login"]', function(){
-            console.log("<New Location: "+browser.location.href+">");
-            console.log(browser.html());
-        });
-        
         //Check every action
         schema.forEach(function(key) {
             let selector = key.selector;
@@ -208,19 +196,15 @@ module.exports = {
 
             console.log("---[" + name + ", " + selector + ", "+ type + ", " + value + ", " + action + "]");
             
-            if(browser.location){
-                //Assert
-                browser.assert.element(selector, error);
+            if(true){
+                //Assert if element exists
 
                 switch(action){
                     case "get":{
                         var val = " ";
                         //Prepares value
                         if(type == "input"){
-                            val = browser.field(selector).value;
                         }else{
-                            val = browser.text(selector);
-                            //val = browser.html(selector);
                         }
                         console.log("<Get: '"+val+"'>");
                         //Gets a value and save it to globals.components.<name>
@@ -242,10 +226,8 @@ module.exports = {
                         //Set the value
                         if(type == "input"){
                             console.log("<Set: '"+val+"'>");
-                            browser.fill(selector, val);
                         }else{
                             //using native innerHTML
-                            browser.querySelector(selector).innerHTML = val;
                         }
                     }break;
                     case "submit":{
@@ -253,28 +235,6 @@ module.exports = {
 
                         console.log("<Submitting Form...>"); 
                         
-                        /*browser.pressButton(selector, function(){
-                            console.log("<New Location: "+browser.location.href+">");
-                            self.globals.url.current = browser.location.href;
-                            done = true;
-
-                            //console.log(browser.html());
-                            //console.log(browser.statusCode);
-                        });*/
-
-                        var form = browser.querySelector('aspnetForm');
-                        //console.log(form.name);
-                        form.submit();
-                        browser.wait(function() {
-                            console.log("Finished!");
-                            console.log("<New Location: "+browser.location.href+">");
-
-                            done = true;
-                        });
-
-                        //loop while its not yet done.
-                        console.log("<Waiting for form to finish...>");
-                        //sync.loopWhile(function(){return !done;});
                     }break;
                 }
             }else{
@@ -293,10 +253,7 @@ module.exports = {
             self.globals["url"] = {};
         }
 
-        //Check if browser object is not null
-        let browser = self.getBrowser(self);
-
-        if(browser){
+        if(true){
             let error = schema.error ? schema.error : " ";
             let path = schema.path;
             let action = schema.action;
@@ -307,8 +264,8 @@ module.exports = {
                 case "assert":{
                     //Get the current browser location
                     //Check if same as given path
-                    if(browser.location){
-                        browser.assert.url(path, error);
+                    if(true){
+
                     }else{
                         throw new Error(error);
                     }
@@ -318,17 +275,11 @@ module.exports = {
                     var done = false;
 
                     //Visit the path given
-                    browser.visit(path, function() {
-                        //browser.assert.success(error);
-                        console.log("<New Location: "+browser.location.href+">");
-                        self.globals.url.current = browser.location.href;
-
-                        done = true;
-                    });
+                    
 
                     //loop while its not yet done.
                     console.log("<Waiting for async task to finish...>");
-                    sync.loopWhile(function(){return !done;});
+                    //sync.loopWhile(function(){return !done;});
                 }break;
             }
         }
@@ -463,22 +414,15 @@ module.exports = {
         }
         return true;
     },
-    getBrowser: function(self){
-        if(self.globals.browser == null){
-            console.log("<Creating New Browser Object.>");
-            self.globals.browser = new Browser();
-        }
-        return self.globals.browser;
-    },
     shouldLog: function(log_flag){
         if(!log_flag){
             console.log = function() {};
         }
     },
-	loadSchema: function(deploy_flag, callback){
+	loadSchema: function(callback){
         const self =  module.exports;
-        const filename = 'schema.yaml';
-        const bucket = 'janmir';
+        const deploy_flag = self.deploy;
+        const filename = self.file;
 
         try{
             if(schema_cache != null){
@@ -500,7 +444,7 @@ module.exports = {
                     //Get from S3
                     let s3 = new aws.S3();
                     var params = {
-                        Bucket: bucket,
+                        Bucket: self.bucket,
                         Key: filename
                     }
                     s3.getObject(params, function(err, data) {
