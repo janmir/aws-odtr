@@ -5,23 +5,9 @@ const aws = require('aws-sdk');
 const fs = require('fs');
 const request = require("request");
 const sync = require('deasync');
+const $ = require('fast-html-parser');
 
 var schema_cache = null;
-
-/*
-Universal Data Structure
-{
-    path:{
-        action:""
-    },
-    querystring:{
-        key:value
-    },
-    variable:{
-        key:value
-    }
-}
-*/
 
 module.exports = {
     deploy: false,
@@ -29,10 +15,13 @@ module.exports = {
     callback: null,
     bucket:null,
     file:null,
-    globals:{
-        browser:null
+    global:{
+        location: null,
+        request: null,
+        cookies: {},
+        env: {}
     },
-    results:{},
+    result:{},
 
     main: function(self, schema){
         const act = self.events.path.action;
@@ -63,17 +52,26 @@ module.exports = {
                     }
                 }
             });
+            
+            //Print global values
+            console.log("------------GLOBAL------------");
+            console.log(self.global);                        
+            console.log("------------RESULTS------------");
 
-            console.log("----------------------------");
             //self.componentHandler();
-            self.callback(null, {"":""});  
+            self.callback(null, self.result);  
 
         } catch (err) {
-            console.log("----------------------------");
-            self.callback(err, null);  
+            //Print global values
+            console.log("------------GLOBAL------------");
+            console.log(self.global); 
+            console.log("------------RESULTS------------");
+
+            self.callback(err, self.result);  
         }
     },
     doAction: function(self, action){
+        //console.log(action);
         //Check prerequisites
         if(action.if){
             console.log("-If:");
@@ -115,10 +113,6 @@ module.exports = {
                 self.doThat(self, action.that, key);
             });
         }
-
-        //Print global values
-        console.log("------------GLOBAL------------");
-        console.log(self.globals);                        
     },
     doIf: function(self, action, check){
         var schema = action[check];
@@ -142,6 +136,9 @@ module.exports = {
         switch(check){
             case "components":{
                 self.componentsHandler(self, schema);
+            }break;
+            case "requests":{
+                self.requestsHandler(self, schema);
             }break;
             case "variable":{
                 self.variableHandler(self, schema);                
@@ -169,10 +166,201 @@ module.exports = {
             }break;
         }
     },
+    /*
+    { 
+        url: 'https://odtr.awsys-i.com/jp-odtr/DTRMainLoginv2.aspx',
+        method: 'GET',
+        headers: {},
+        body: ' ',
+        jar:
+        RequestJar {
+            _jar: CookieJar { enableLooseMode: true, store: { idx: {} } } } 
+    }
+    */
+    requestsHandler: function(self, schema){
+        //Check every variable
+        schema.forEach(function(key) {
+            let url = key.url;
+            let method = key.method ? key.method : "GET";
+            let header = key.header ? key.header : {};
+            let cache = key.cache ? key.cache : null;
+            let checks = key.checks;
+            let body = key.body ? key.body : null;
+            let error = key.error ? key.error : "No Error Message.";
+            
+            console.log("---******" + method + ": "  + url + "******");
+
+            var done = false;
+            var response = null;
+            var cookieJar = request.jar();
+
+            //Format body based on Content-Type
+            if(body && header){
+                switch(header["Content-Type"]){
+                    //Known content types
+                    case "application/x-www-form-urlencoded":{
+                        var tBody = "";
+                        Object.keys(body).forEach((key) => {
+                            let value = body[key];
+                            
+                            //get value
+                            let separator = "&";
+                            var val = value;
+                            let re = /\b[a-z]+\.[_a-z]+/g;
+                            if(value.match(re)){
+                                try {
+                                    val = eval("module.exports.global." + value);
+                                } catch (error) {
+                                    throw new Error(error.message);
+                                }
+                            }
+
+                            console.log("----body: "+key+":"+val);
+                            tBody += encodeURIComponent(key) + "=" + 
+                                     encodeURIComponent(val) + 
+                                     separator;
+                        });
+                        body = tBody.substr(0, tBody.length - 1);
+
+                        //Save content length to be used by header
+                        self.global.env.contentLength = body.length;
+                    }break;
+                    case "application/json":{
+
+                    }break;
+                }
+            }
+
+            //Format headers
+            //Cookie: ASP.NET_SessionId=xd1ellakq05jew45340i4i55; userInfo_JP=EmpName_JP=Miranda, Jan Paul&EmployeeID_JP=157&EmpLocationID_JP=; odtr_user=; odtr_hash=
+            //Need to add existing cookie to header
+            let cookey = Object.keys(self.global.cookies);
+            if(cookey.length > 0){
+                var cookieString = "";
+                let separator = ";";
+                cookey.forEach((key) => {
+                    cookieString += key + "=" + self.global.cookies[key] + separator;
+                });
+
+                header.Cookie = cookieString.substr(0, cookieString.length - 1);
+            }
+
+            //Create request options
+            var options = {
+                url: url,
+                method: method,
+                headers: header,
+                body: body ? body : "",
+                jar: cookieJar
+            };
+
+            console.log("<*******************Payload Start>*********************");
+            console.log(options);
+            console.log("<*******************Payload End>*********************");
+            
+            //Perform HTTP Request
+            request(options, function(error, _response, _body){
+                if (!error) {
+                    response = _response;
+                    done = true;
+                }else{
+                    throw new Error("On request error: " + error.message);
+                }
+            });
+
+            //Loop while its not yet done.
+            console.log("<Waiting for async task to finish...>");
+            sync.loopWhile(function(){return !done});
+            console.log("<Header Location: "+ response.headers.location +">");
+            
+            /*****Do processing of response here*****/
+
+            //Checks
+            if(checks){
+                Object.keys(checks).forEach((key) => {
+                    let value = checks[key];
+
+                    //Check Known Keys
+                    switch(key){
+                        case "statusCode":{
+                            console.log("<Status Code: "+ response.statusCode +">")                            
+                            if(response.statusCode != value)
+                                throw new Error(error + " Statuscode "+ value +
+                                    " did not match with Response " + response.statusCode);
+                        }break;
+                    }
+                });
+            }
+
+            //All pass store cookies
+            var cookies = cookieJar._jar.toJSON();
+            if(cookies.cookies.length > 0){
+                cookies.cookies.forEach((cookie) => {
+                    let value = cookie.value ? cookie.value : "";
+                    console.log("----cookie: "+cookie.key+": "+value);
+                    
+                    //Store in global cache
+                    self.global.cookies[cookie.key] = value;
+                });
+            }
+
+            //All Pass store current location
+            self.global.location = response.request.href;
+
+            //Store listed id values in 'cache' to global variables
+            var html = null;
+            if(cache){
+                //HTML Parse body
+                html = $.parse(response.body);
+                console.log("<Title: "+ html.querySelector('title').text +">")
+
+                Object.keys(cache).forEach((key) => {
+                    let value = cache[key];
+                    console.log("----cache: "+key+":"+value);
+
+                    //Store in global cache
+                    let node = html.querySelector(value);
+                    if(node){
+                        self.global.env[key] = node.attributes.value;
+                    }
+                });
+            }
+
+            //Handler redirects manually
+            if(response.statusCode == 302){
+                console.log("<Redirecting to: "+ response.headers.location +">");
+            }
+        });
+    },
+    /*
+    { if:
+        { querystring:
+            { username: [Object],
+                password: [Object],
+                error: 'Missing required parameter, did you miss anything?' },
+            url:
+            { path: 'https://odtr.awsys-i.com/jp-odtr/DTRMainLoginv2.aspx',
+                action: 'visit',
+                error: 'Unable to access path.' } },
+    then: 
+        { actions: { 'visit-page': [Object] }, requests: [ [Object] ] },
+    that:
+        { url:
+            { path: 'https://odtr.awsys-i.com/jp-odtr/DTRMainv2.aspx',
+                action: 'assert',
+                error: 'Unable to login.' },
+            variable: { 'logged-in': true, type: 'set' } 
+            } 
+        }
+    }
+    */
     actionsHandler: function(self, schema){
         //Check every variable
-        Object.keys(schema).forEach(function(key) {
-            console.log("---" + key);
+        console.log(schema);
+        Object.keys(schema).forEach(function(action) {
+            console.log("---" + action);
+            console.log("Action: " + action);            
+            self.doAction(self, schema_cache[action]);
         });
     },
     /*
@@ -183,8 +371,8 @@ module.exports = {
     */
     componentsHandler: function(self, schema){
         //init globals
-        if(self.globals.components == null){
-            self.globals["components"] = {};
+        if(self.global.components == null){
+            self.global["components"] = {};
         }
         
         //Check every action
@@ -210,7 +398,7 @@ module.exports = {
                         }
                         console.log("<Get: '"+val+"'>");
                         //Gets a value and save it to globals.components.<name>
-                        self.globals.components[name] = val;
+                        self.global.components[name] = val;
                     }break;
                     case "set":{
                         //get value
@@ -234,10 +422,7 @@ module.exports = {
                     }break;
                     case "button":{
                         var done = false;
-                        console.log("<Submitting Form...>");
-
-                        console.log("<Submitting Form...>"); 
-                        
+                        console.log("<Submitting Form...>");                        
                     }break;
                 }
             }else{
@@ -252,37 +437,45 @@ module.exports = {
     */
     urlHandler: function(self, schema){
         //init globals
-        if(self.globals.url == null){
-            self.globals["url"] = {};
-        }
+        /*if(self.global.url == null){
+            self.global["url"] = {};
+        }*/
 
-        if(true){
+        let request = self.getRequestObject(self);
+
+        if(request){
             let error = schema.error ? schema.error : " ";
             let path = schema.path;
             let action = schema.action;
 
+            //Request params
+            let cache = schema.cache ? schema.cache : [];
+            let checks = schema.checks ? schema.checks : {};
+            
             console.log("---[" + path + ", "+ action + ", " + error + "]");
     
             switch(action){
                 case "assert":{
                     //Get the current browser location
                     //Check if same as given path
-                    if(true){
-
-                    }else{
+                    console.log("<Current Location: "+ self.global.location +">");
+                    if(self.global.location != path){
                         throw new Error(error);
                     }
                 }break;
                 case "visit":{
-                    //Have to convert this to async
-                    var done = false;
-
                     //Visit the path given
+                    let data = [{ 
+                        url: path,
+                        method: "GET",
+                        cache: cache,
+                        checks: checks,
+                        header: null,
+                        cookie: null,
+                        error: error 
+                    }];
                     
-
-                    //loop while its not yet done.
-                    console.log("<Waiting for async task to finish...>");
-                    //sync.loopWhile(function(){return !done;});
+                    self.requestsHandler(self, data);
                 }break;
             }
         }
@@ -293,11 +486,6 @@ module.exports = {
     - Variable value check
     */
     variableHandler: function(self, schema){
-        //init globals
-        if(self.globals.variable == null){
-            self.globals["variable"] = {};
-        }
-
         let parentError = schema.error ? schema.error : " ";
         
         //Check every variable
@@ -317,12 +505,12 @@ module.exports = {
 
             switch(type){
                 case "set":{
-                    self.globals.variable[name] = value;
+                    self.global.env[name] = value;
                 }break;
                 case "assert":{
                     //Check if variable is in globals
                     //Check if value is same as given value
-                    if(self.globals.variable[name] && self.globals.variable[name] == value){
+                    if(self.global.env[name] && self.global.env[name] == value){
                         //Nothing to do my dear.
                     }else{
                         throw new Error(parentError +" "+ error);
@@ -340,10 +528,6 @@ module.exports = {
     - Query format checking
     */
     queryHandler: function(self, schema, querieString){
-        //init globals
-        if(self.globals.querystring == null){
-            self.globals["querystring"] = {};
-        }
 
         //Get keys
         let queryKeys = Object.keys(querieString);
@@ -372,18 +556,30 @@ module.exports = {
                 //Value validity check
                 if(self.validateString(type, match, value)){
                     //If Query is found Add to global
-                    self.globals.querystring[key] = value;
+                    self.global.env[key] = value;
                 }else{
                     throw new Error(error);
                 }
             }else{
                 throw new Error(parentError);
             }
+                    console.log("<Pass>");
         });
     },
     notificationHandler: function(){
         
-    },  
+    },
+    getRequestObject(self){
+        if(self.global.request == null){
+            self.global.request = request.defaults({
+                jar: true,
+                followRedirect: true,
+                followOriginalHttpMethod: true
+            });
+        }
+
+        return self.global.request;
+    },
     /*
     - Check if string is of type
     - Check if string is of pattern/format
@@ -398,9 +594,7 @@ module.exports = {
                 let value_type = !isNum ? 'string': 'number';
     
                 console.log("<Type: " +value_type+ ">");
-                if(value_type === type){ //type === typeof value
-                  //do nothing  
-                }else{
+                if(value_type != type){ //type === typeof value
                     return false;
                 }
             }
@@ -408,9 +602,7 @@ module.exports = {
             //Match -> regex pattern
             if(match){
                 match = new RegExp(match);
-                if(value.match(match)){ //match === match value
-                    //do nothing  
-                }else{
+                if(!value.match(match)){ //match === match value
                     return false;
                 }
             }
@@ -422,7 +614,7 @@ module.exports = {
             console.log = function() {};
         }
     },
-	loadSchema: function(callback){
+	loadSchema: function(main){
         const self =  module.exports;
         const deploy_flag = self.deploy;
         const filename = self.file;
@@ -430,7 +622,7 @@ module.exports = {
         try{
             if(schema_cache != null){
                 console.log("//From Cache");
-                callback(self, schema_cache);
+                main(self, schema_cache);
             }else{
                 if(!deploy_flag){
                     console.log("//From Local");
@@ -440,7 +632,7 @@ module.exports = {
                     let config = yaml.safeLoad(file);
                     let indentedJson = JSON.stringify(config, null, 4);
         
-                    callback(self, JSON.parse(indentedJson));
+                    main(self, JSON.parse(indentedJson));
                 }else{
                     console.log("//From Bucket");
         
@@ -456,16 +648,16 @@ module.exports = {
                             let config = yaml.safeLoad(file);
                             let indentedJson = JSON.stringify(config, null, 4);
                 
-                            callback(self, JSON.parse(indentedJson));
+                            main(self, JSON.parse(indentedJson));
                         }else{
-                            self.callback(err, null);
+                            self.callback(err, self.result);
                         } 
                     });
                 }
             }
         } catch (err) {
-            console.log("----------------------------");            
-            self.callback(err, null);
+            console.log("--------------RESULT--------------");            
+            self.callback(err, self.result);
         }
     }
 }

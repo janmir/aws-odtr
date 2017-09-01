@@ -4,34 +4,39 @@
 - [x] Yaml schema read S3 bucket.
 - [x] Yaml schema read from cache.
 - [x] Yaml parse to json.
-- [ ] Handle **Login** action.
+- [x] Handle **Login** action.
 - [ ] Handle **Check** action.
 - [ ] Handle **Time-in-out** action.
 - [ ] Handle **Time-in** action.
 - [ ] Handle **Time-out** action.
-- [ ] **If** condition check. 
+- [x] **If** condition check. 
     - [x] **Query**
         - [x] Type validation.
         - [x] Format validation.
-    - [ ] **Variable**
-        - [ ] Assigned check.
-        - [ ] Value check.
+    - [x] **Variable**
+        - [x] Assigned check.
+        - [x] Value check.
 - [ ] **Then** Perform action.
-    - [ ] **Components** handler for **Then**.
-        - [ ] CSS selector support.
-        - [ ] Value injection.
-        - [ ] Value retrieval.
-        - [ ] Form submission.
-    - [ ] **Url** handler  for **Then**.
-        - [ ] Hyperlink follow.
-        - [ ] Hyperlink check.
-    - [ ] Action, handle calling of other actions.
-- [ ] **That** Perform action, Result check & set required values.
+    - [ ] ~~**Components** handler for **Then**~~.
+        - [ ] ~~CSS selector support.~~
+        - [ ] ~~Value injection.~~
+        - [ ] ~~Value retrieval.~~
+        - [ ] ~~Form submission.~~
+    - [x] **Url** handler  for **Then**.
+        - [x] Hyperlink follow.
+        - [x] Hyperlink check.
+    - [x] Action, handle calling of other actions.
+- [x] **That** Perform action, Result check & set required values.
 - [x] **Querystring** Handler implementation
 - [x] **Variable** Handler implementation
-- [ ] **Components** Handler implementation
-- [ ] **Actions** Handler implementation
+- [ ] ~~**Components** Handler implementation~~
+- [x] **Actions** Handler implementation
 - [x] **Url** Handler implementation
+- [x] **Request** Handler implementation
+    - [x] Handling POST calls
+    - [x] Handling GET calls
+    - [x] Handling Cookies    
+    - [x] Handling Redirects    
 - [ ] **Notification** Handler implementation
 
 ### Disclaimer
