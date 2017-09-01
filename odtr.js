@@ -5,6 +5,7 @@ const aws = require('aws-sdk');
 const fs = require('fs');
 const request = require("request");
 const sync = require('deasync');
+
 var schema_cache = null;
 
 /*
@@ -31,6 +32,7 @@ module.exports = {
     globals:{
         browser:null
     },
+    results:{},
 
     main: function(self, schema){
         const act = self.events.path.action;
@@ -230,8 +232,9 @@ module.exports = {
                             //using native innerHTML
                         }
                     }break;
-                    case "submit":{
+                    case "button":{
                         var done = false;
+                        console.log("<Submitting Form...>");
 
                         console.log("<Submitting Form...>"); 
                         
