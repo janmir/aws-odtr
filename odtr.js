@@ -9,6 +9,18 @@ const $ = require('fast-html-parser');
 
 var schema_cache = null;
 
+/*
+{
+    "path" : {
+            "action" : "login"
+    },
+    "querystring" : {
+            "password" : "awsol+123",
+            "username" : "jp.miranda"
+    }
+}
+*/
+
 module.exports = {
     deploy: false,
     events: null,
@@ -24,53 +36,65 @@ module.exports = {
     result:{},
 
     main: function(self, schema){
-        const act = self.events.path.action;
 
-        //cache schema
-        schema_cache = schema;
-
-        //log value
-        console.log(schema);
-        console.log("------Action: "+ act +"-------");
-
-        try {    
-            //JSON keys
-            let jsonKeys = Object.keys(schema); 
-                        
-            //Check every action
-            jsonKeys.forEach(function(action) {
-                if(act === action){
-                    console.log("Action: " + action);
-                    
-                    switch(action){
-                        case "login":
-                        case "check":
-                        case "time-in-out":{
-                            self.doAction(self, schema[action]);
-                        }break;
-                        case "error":break;
-                    }
-                }
-            });
+        try {
+            const act = self.events.path.action;
+            const que = self.events.querystring;
             
-            //Print global values
-            console.log("------------GLOBAL------------");
-            console.log(self.global);                        
-            console.log("------------RESULTS------------");
+            //cache schema
+            schema_cache = schema;
+    
+            //log value
+            console.log(schema);
+            console.log("------Action: "+ act +"---------------------------------------");
 
-            //self.componentHandler();
-            self.callback(null, self.result);  
+            if(act && que){
+                //JSON keys
+                let jsonKeys = Object.keys(schema); 
+                let actionPerformed = false;
+                
+                //Check every action
+                jsonKeys.forEach(function(action) {
+                    if(act === action){
+                        console.log("Action: " + action);
+                        
+                        switch(action){
+                            case "login":
+                            case "check":
+                            case "time-in-out":{
+                                self.doAction(self, schema[action], que);
 
+                                actionPerformed = true;
+                            }break;
+                            case "error":break;
+                        }
+                    }
+                });
+
+                if(!actionPerformed){
+                    throw new Error("Critical: No Action was perfomed, Are you sure you of what you're doing?.");
+                }
+                
+                //Print global values
+                console.log("------------GLOBAL------------");
+                console.log(self.global);                        
+                console.log("------------RESULTS------------");
+                self.result.url = self.global.location;
+                self.callback(null, self.result);  
+                self.cleanUp(self);            
+            }else{
+                throw new Error("Critical: Please specify action to be performed and provide required parameters.");
+            }
         } catch (err) {
             //Print global values
             console.log("------------GLOBAL------------");
             console.log(self.global); 
-            console.log("------------RESULTS------------");
-
+            console.log("------------ERROR-RESULTS------------");
             self.callback(err, self.result);  
+            self.cleanUp(self);
         }
     },
-    doAction: function(self, action){
+    doAction: function(self, action, querystring){
         //console.log(action);
         //Check prerequisites
         if(action.if){
@@ -82,7 +106,7 @@ module.exports = {
                 console.log("--"+key);
 
                 //Call If handler
-                self.doIf(self, action.if, key);
+                self.doIf(self, action.if, key, querystring);
             });
         }
 
@@ -114,9 +138,8 @@ module.exports = {
             });
         }
     },
-    doIf: function(self, action, check){
+    doIf: function(self, action, check, querieString){
         var schema = action[check];
-        let querieString = self.events.querystring;
 
         switch(check){
             case "querystring":{
@@ -232,7 +255,6 @@ module.exports = {
             }
 
             //Format headers
-            //Cookie: ASP.NET_SessionId=xd1ellakq05jew45340i4i55; userInfo_JP=EmpName_JP=Miranda, Jan Paul&EmployeeID_JP=157&EmpLocationID_JP=; odtr_user=; odtr_hash=
             //Need to add existing cookie to header
             let cookey = Object.keys(self.global.cookies);
             if(cookey.length > 0){
@@ -273,8 +295,7 @@ module.exports = {
             sync.loopWhile(function(){return !done});
             console.log("<Header Location: "+ response.headers.location +">");
             
-            /*****Do processing of response here*****/
-
+            /********************Do processing of response here********************/
             //Checks
             if(checks){
                 Object.keys(checks).forEach((key) => {
@@ -357,10 +378,27 @@ module.exports = {
     actionsHandler: function(self, schema){
         //Check every variable
         console.log(schema);
+
         Object.keys(schema).forEach(function(action) {
             console.log("---" + action);
-            console.log("Action: " + action);            
-            self.doAction(self, schema_cache[action]);
+            console.log("Action: " + action);    
+            
+            let queries = schema[action];
+            
+            //Add values to query string
+            let querystring = null;
+            if(queries){
+                let queriesKeys = Object.keys(queries);
+                if(queriesKeys.length > 0){
+                    querystring = {};
+                    queriesKeys.forEach(function(key) {
+                        querystring[key] = queries[key];
+                    });
+                }
+            }
+
+            console.log(querystring);
+            self.doAction(self, schema_cache[action], null);
         });
     },
     /*
@@ -529,6 +567,10 @@ module.exports = {
     */
     queryHandler: function(self, schema, querieString){
 
+        if(querieString == null){
+            throw new Error("Critical: Missing Query String.");
+        }
+
         //Get keys
         let queryKeys = Object.keys(querieString);
         let jsonKeys = Object.keys(schema);
@@ -656,8 +698,25 @@ module.exports = {
                 }
             }
         } catch (err) {
-            console.log("--------------RESULT--------------");            
+            console.log("--------------ERROR-RESULT--------------");       
             self.callback(err, self.result);
+            self.cleanUp(self);
         }
+    },
+    cleanUp: function(self){
+        console.log("<**************Cleanup**************>");
+        //Clean it all!!!!
+        self.deploy = false;
+        self.events = null;
+        self.callback = null;
+        self.bucket = null;
+        self.file = null;
+        self.global = {
+            location: null,
+            request: null,
+            cookies: {},
+            env: {}
+        };
+        self.result = {};
     }
 }

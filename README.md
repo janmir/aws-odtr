@@ -38,6 +38,8 @@
     - [x] Handling Cookies    
     - [x] Handling Redirects    
 - [ ] **Notification** Handler implementation
+- [ ] Error message handling
+    - [ ] Add variable support in yaml file.
 
 ### Disclaimer
 > :cat: This is a personal project of mine, I just need somewhere to store and track it. Sorry if it may not
