@@ -6,6 +6,7 @@ const fs = require('fs');
 const request = require("request");
 const sync = require('deasync');
 const $ = require('fast-html-parser');
+const moment = require('moment');
 
 var schema_cache = null;
 
@@ -567,6 +568,18 @@ module.exports = {
 
             switch(type){
                 case "set":{
+                    if(typeof value == "string"){
+                        let re = /^\w+\(\)$/;
+                        if(value.match(re)){
+                            //call known function
+                            switch(value){
+                                case "timenow()":{
+                                    value = moment().format('h:mm');
+                                }break;
+                            }
+                        }
+                    }
+
                     self.global.env[name] = value;
                 }break;
                 case "assert":{
@@ -579,7 +592,34 @@ module.exports = {
                     }
                 }break;
                 case "evaluate":{
+                    //Temporary value
+                    let tVal = value;
+                    let re = /^[env.\S]+\s[>\-\+\*<]\s[env.\S]+\b/;
 
+                    //Match check format
+                    if(value.match(re)){
+                        //split by space first
+                        tVal = eval(value);
+                    }
+
+                    //greater-than
+                    //less-than
+                    let gt = variable.greater-than;
+                    let lt = variable.less-than;
+                    let eq = variable.equal;
+                    if(gt != null){
+                        if(tVal < gt){
+                            throw new Error(parentError +" "+ error);
+                        }
+                    }else if(lt != null){
+                        if(tVal > lt){
+                            throw new Error(parentError +" "+ error);
+                        }
+                    }else if(eq != null){
+                        if(tVal != eq){
+                            throw new Error(parentError +" "+ error);
+                        }
+                    }
                 }break;
             }
 

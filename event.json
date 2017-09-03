@@ -1,5 +1,5 @@
 {
-    "path" : {"action" : "check"},
+    "path" : {"action" : "login"},
     "querystring" : {
             "password" : "awsol%2B123",
             "username" : "jp.miranda"
