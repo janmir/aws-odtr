@@ -16,7 +16,7 @@ var schema_cache = null;
             "action" : "login"
     },
     "querystring" : {
-            "password" : "awsol+123",
+            "password" : "*******",
             "username" : "jp.miranda"
     }
 }
@@ -204,7 +204,7 @@ module.exports = {
     },
     /*
     { 
-        url: 'https://odtr.awsys-i.com/jp-odtr/DTRMainLoginv2.aspx',
+        url: 'https://example.com',
         method: 'GET',
         headers: {},
         body: ' ',
@@ -313,7 +313,6 @@ module.exports = {
                         case "statusCode":{
                             console.log("<Status Code["+url+"]: "+ response.statusCode +">")                            
                             if(response.statusCode != value){
-                                //TODO: Check error messges in html
                                 //Check first if component exist
                                 //Copy content as error message
                                 let re = /^\#\S+\b/;
@@ -382,14 +381,14 @@ module.exports = {
                 password: [Object],
                 error: 'Missing required parameter, did you miss anything?' },
             url:
-            { path: 'https://odtr.awsys-i.com/jp-odtr/DTRMainLoginv2.aspx',
+            { path: 'https://example.com',
                 action: 'visit',
                 error: 'Unable to access path.' } },
     then: 
         { actions: { 'visit-page': [Object] }, requests: [ [Object] ] },
     that:
         { url:
-            { path: 'https://odtr.awsys-i.com/jp-odtr/DTRMainv2.aspx',
+            { path: 'https://example.com',
                 action: 'assert',
                 error: 'Unable to login.' },
             variable: { 'logged-in': true, type: 'set' } 
@@ -399,7 +398,6 @@ module.exports = {
     */
     actionsHandler: function(self, schema){
         //Check every variable
-        //console.log(schema);
 
         Object.keys(schema).forEach(function(action) {
             console.log("---" + action);
@@ -574,7 +572,7 @@ module.exports = {
                             //call known function
                             switch(value){
                                 case "timenow()":{
-                                    value = moment().format('h:mm');
+                                    value = moment().format('hh:mm');
                                 }break;
                             }
                         }
