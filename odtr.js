@@ -27,13 +27,18 @@ module.exports = {
     callback: null,
     bucket:null,
     file:null,
+    current_time: null,
     global:{
         location: null,
         request: null,
         cookies: {},
         env: {}
     },
-    result:{},
+    result:{
+        result: false
+    },
+    //response: null,
+    html: null,
 
     main: function(self, schema){
 
@@ -59,27 +64,26 @@ module.exports = {
                         console.log("Action: " + action);
                         
                         switch(action){
+                            case "error":break;
                             case "login":
                             case "check":
-                            case "time-in-out":{
+                            case "time-in":{
                                 self.doAction(self, schema[action], que);
-
                                 actionPerformed = true;
                             }break;
-                            case "error":break;
                         }
                     }
                 });
 
                 if(!actionPerformed){
-                    throw new Error("Critical: No Action was perfomed, Are you sure you of what you're doing?.");
+                    throw new Error("Critical: No Action was perfomed, Incorrect Action maybe? Are you sure you of what you're doing?.");
                 }
                 
                 //Print global values
                 console.log("------------GLOBAL------------");
                 console.log(self.global);                        
                 console.log("------------RESULTS------------");
-                self.result.url = self.global.location;
+                
                 self.callback(null, self.result);  
                 self.cleanUp(self);            
             }else{
@@ -90,6 +94,8 @@ module.exports = {
             console.log("------------GLOBAL------------");
             console.log(self.global); 
             console.log("------------ERROR-RESULTS------------");
+            
+            self.result.result = false;            
             self.callback(err, self.result);  
             self.cleanUp(self);
         }
@@ -178,11 +184,17 @@ module.exports = {
         var schema = action[check];
         
         switch(check){
+            case "components":{
+                self.componentsHandler(self, schema);
+            }break;
             case "variable":{
                 self.variableHandler(self, schema);                
             }break;
             case "actions":{
                 self.actionsHandler(self, schema);
+            }break;
+            case "return":{
+                self.returnHandler(self, schema);
             }break;
             case "url":{
                 self.urlHandler(self, schema);
@@ -211,8 +223,6 @@ module.exports = {
             let body = key.body ? key.body : null;
             let error = key.error ? key.error : "No Error Message.";
             
-            console.log("---******" + method + ": "  + url + "******");
-
             var done = false;
             var response = null;
             var cookieJar = request.jar();
@@ -228,19 +238,11 @@ module.exports = {
                             
                             //get value
                             let separator = "&";
-                            var val = value;
-                            let re = /\b[a-z]+\.[_a-z]+/g;
-                            if(value.match(re)){
-                                try {
-                                    val = eval("module.exports.global." + value);
-                                } catch (error) {
-                                    throw new Error(error.message);
-                                }
-                            }
+                            let val = self.evaluateValue(value);
 
                             console.log("----body: "+key+":"+val);
-                            tBody += encodeURIComponent(key) + "=" + 
-                                     encodeURIComponent(val) + 
+                            tBody += key + "=" + 
+                                     val + 
                                      separator;
                         });
                         body = tBody.substr(0, tBody.length - 1);
@@ -272,13 +274,14 @@ module.exports = {
                 url: url,
                 method: method,
                 headers: header,
-                body: body ? body : "",
+                body: body ? body : null,
                 jar: cookieJar
             };
 
-            console.log("<*******************Payload Start>*********************");
+            console.log("*******************<Payload Start>*********************");
             console.log(options);
-            console.log("<*******************Payload End>*********************");
+            console.log("*******************<Payload End>***********************");
+            console.log("*******************" + method + ": "  + url + "********");
             
             //Perform HTTP Request
             request(options, function(error, _response, _body){
@@ -292,10 +295,13 @@ module.exports = {
 
             //Loop while its not yet done.
             console.log("<Waiting for async task to finish...>");
-            sync.loopWhile(function(){return !done});
-            console.log("<Header Location: "+ response.headers.location +">");
+            sync.loopWhile(()=>{return !done});
             
             /********************Do processing of response here********************/
+            //HTML Parse body
+            var html = $.parse(response.body);
+            self.html = html;
+
             //Checks
             if(checks){
                 Object.keys(checks).forEach((key) => {
@@ -304,14 +310,34 @@ module.exports = {
                     //Check Known Keys
                     switch(key){
                         case "statusCode":{
-                            console.log("<Status Code: "+ response.statusCode +">")                            
-                            if(response.statusCode != value)
-                                throw new Error(error + " Statuscode "+ value +
-                                    " did not match with Response " + response.statusCode);
+                            console.log("<Status Code["+url+"]: "+ response.statusCode +">")                            
+                            if(response.statusCode != value){
+                                //TODO: Check error messges in html
+                                //Check first if component exist
+                                //Copy content as error message
+                                let re = /^\#\S+\b/;
+                                if(error.match(re)){
+                                    //Matched error message convert to values
+                                    let node = html.querySelector(error);
+                                    if(node){
+                                        error = node.text.trim() + ".";
+                                        self.global.env.error = error;
+                                    }
+                                }   
+
+                                //Throw an error
+                                throw new Error(error + " Expected statuscode of "+ value +
+                                " did not match with Response " + response.statusCode);
+                            }
                         }break;
                     }
                 });
             }
+
+            //All Pass store current location
+            self.global.env.location = response.request.href;
+            //self.response = response;
+            console.log("<Current Location: "+ self.global.env.location +">");
 
             //All pass store cookies
             var cookies = cookieJar._jar.toJSON();
@@ -325,14 +351,8 @@ module.exports = {
                 });
             }
 
-            //All Pass store current location
-            self.global.location = response.request.href;
-
             //Store listed id values in 'cache' to global variables
-            var html = null;
             if(cache){
-                //HTML Parse body
-                html = $.parse(response.body);
                 console.log("<Title: "+ html.querySelector('title').text +">")
 
                 Object.keys(cache).forEach((key) => {
@@ -342,7 +362,8 @@ module.exports = {
                     //Store in global cache
                     let node = html.querySelector(value);
                     if(node){
-                        self.global.env[key] = node.attributes.value;
+                        let encodedValue = encodeURIComponent(node.attributes.value);
+                        self.global.env[key] = encodedValue;
                     }
                 });
             }
@@ -377,7 +398,7 @@ module.exports = {
     */
     actionsHandler: function(self, schema){
         //Check every variable
-        console.log(schema);
+        //console.log(schema);
 
         Object.keys(schema).forEach(function(action) {
             console.log("---" + action);
@@ -392,15 +413,27 @@ module.exports = {
                 if(queriesKeys.length > 0){
                     querystring = {};
                     queriesKeys.forEach(function(key) {
-                        querystring[key] = queries[key];
+                        let value = queries[key];
+                        let val = self.evaluateValue(value);
+
+                        querystring[key] = val;
                     });
                 }
             }
 
-            console.log(querystring);
-            self.doAction(self, schema_cache[action], null);
+            self.doAction(self, schema_cache[action], querystring);
         });
     },
+    returnHandler: function(self, schema){
+        Object.keys(schema).forEach(function(key) {
+            let value = schema[key];
+            let val = self.evaluateValue(value);
+
+            console.log("---[" + key + ", " + value + ", " + val + "]");
+
+            self.result[key] = val; 
+        });            
+    },        
     /*
     - Handle globals
     - Check if component exist
@@ -408,60 +441,56 @@ module.exports = {
     - Get component values
     */
     componentsHandler: function(self, schema){
-        //init globals
-        if(self.global.components == null){
-            self.global["components"] = {};
-        }
         
         //Check every action
         schema.forEach(function(key) {
             let selector = key.selector;
             let name = key.name;
-            let type = key.type;
-            let value = key.value;
             let action = key.action;
             let error = key.error ? key.error : "Can't locate " + selector + ".";
 
-            console.log("---[" + name + ", " + selector + ", "+ type + ", " + value + ", " + action + "]");
+            console.log("---[" + name + ", " + selector + ", " + action + "]");
             
-            if(true){
+            if(self.html){
                 //Assert if element exists
+                let elements = self.html.querySelectorAll(selector);
+                if(elements.length > 0){
+                    switch(action){
+                        case "get":{
+                            self.global.env[name] = elements[elements.length-1].text.trim();
+                        }break;
+                        case "merge":{
+                            var value = "";
+                            elements.forEach((element)=>{
+                                let val = element.text.trim();
+                                if(val != "")
+                                    value +=  val + "|";
+                            });
+                            self.global.env[name] = value.substr(0, value.length - 1);
+                        }break;
+                        case "split":{
+                            var value = "";
+                            let separator = "|";
 
-                switch(action){
-                    case "get":{
-                        var val = " ";
-                        //Prepares value
-                        if(type == "input"){
-                        }else{
-                        }
-                        console.log("<Get: '"+val+"'>");
-                        //Gets a value and save it to globals.components.<name>
-                        self.global.components[name] = val;
-                    }break;
-                    case "set":{
-                        //get value
-                        var val = value;
-                        let re = /\b[a-z]+\.[a-z]+/g;
-                        if(value.match(re)){
-                            console.log("<Match>");
-                            try {
-                                val = eval("module.exports.globals." + value);
-                            } catch (error) {
-                                throw new Error(error.message);
+                            //Merge all data
+                            elements.forEach((element)=>{
+                                let val = element.text.trim();
+                                if(val != "")
+                                    value +=  val + separator;
+                            });
+                            
+                            //Split that shit baby :D
+                            if(value && value.length > 0){
+                                let index = 0;
+                                value.split(separator).forEach((element) => {
+                                    self.global.env[name][index++] = element;
+                                });
                             }
-                        }
-
-                        //Set the value
-                        if(type == "input"){
-                            console.log("<Set: '"+val+"'>");
-                        }else{
-                            //using native innerHTML
-                        }
-                    }break;
-                    case "button":{
-                        var done = false;
-                        console.log("<Submitting Form...>");                        
-                    }break;
+                        }break;
+                    }
+                }else{
+                    //throw new Error("Can't find component.");
+                    self.global.env[name] = "";
                 }
             }else{
                 throw new Error("Can't access the remote location.");
@@ -474,11 +503,6 @@ module.exports = {
     - Goto url
     */
     urlHandler: function(self, schema){
-        //init globals
-        /*if(self.global.url == null){
-            self.global["url"] = {};
-        }*/
-
         let request = self.getRequestObject(self);
 
         if(request){
@@ -496,8 +520,8 @@ module.exports = {
                 case "assert":{
                     //Get the current browser location
                     //Check if same as given path
-                    console.log("<Current Location: "+ self.global.location +">");
-                    if(self.global.location != path){
+                    console.log("<Assert Current Location: "+ self.global.env.location +">");
+                    if(self.global.env.location != path){
                         throw new Error(error);
                     }
                 }break;
@@ -539,7 +563,7 @@ module.exports = {
             let type = variable.type ?variable.type : 'set';
             let error = variable.error;
             
-            console.log("---"+ name + "[" + value + ", "+ type + "]");
+            console.log("---"+ name + "[" + type + ", "+ value + "("+ typeof value + ")]");
 
             switch(type){
                 case "set":{
@@ -553,6 +577,9 @@ module.exports = {
                     }else{
                         throw new Error(parentError +" "+ error);
                     }
+                }break;
+                case "evaluate":{
+
                 }break;
             }
 
@@ -570,6 +597,9 @@ module.exports = {
         if(querieString == null){
             throw new Error("Critical: Missing Query String.");
         }
+
+        console.log("<QueryString>");
+        console.log(querieString);
 
         //Get keys
         let queryKeys = Object.keys(querieString);
@@ -651,9 +681,21 @@ module.exports = {
         }
         return true;
     },
+    evaluateValue: function(value){
+        let re = /\b[a-z]+\.[_a-z]+/g;
+        let isString = typeof value == "string";
+        if(isString && value.match(re)){
+            try {
+                value = eval("module.exports.global." + value);
+            } catch (error) {
+                throw new Error(error.message);
+            }
+        }
+        return value;
+    },
     shouldLog: function(log_flag){
         if(!log_flag){
-            console.log = function() {};
+            console.log = function(str) {};
         }
     },
 	loadSchema: function(main){
@@ -692,19 +734,21 @@ module.exports = {
                 
                             main(self, JSON.parse(indentedJson));
                         }else{
-                            self.callback(err, self.result);
+                            throw new Error(err.message);
                         } 
                     });
                 }
             }
         } catch (err) {
             console.log("--------------ERROR-RESULT--------------");       
-            self.callback(err, self.result);
+
+            self.result.result = false;
+            self.callback(err, self.result);  
             self.cleanUp(self);
         }
     },
     cleanUp: function(self){
-        console.log("<**************Cleanup**************>");
+        console.log("<**************Cleanup Start**************>");
         //Clean it all!!!!
         self.deploy = false;
         self.events = null;
@@ -718,5 +762,7 @@ module.exports = {
             env: {}
         };
         self.result = {};
+        self.html = null;
+        console.log("<**************Cleanup End**************>");
     }
 }
