@@ -426,10 +426,28 @@ module.exports = {
     returnHandler: function(self, schema){
         Object.keys(schema).forEach(function(key) {
             let value = schema[key];
-            let val = self.evaluateValue(value);
+            var val = value;
+            if(typeof value == "string"){
+                let re = /^[env.\S]+\s[>\-\+\*<]\s[env.\S]+\b/;
+                
+                //Match check format
+                if(value.match(re)){
+                    //split by space first
+                    let tokens = value.split(" ");
+                    if(tokens.length == 3){
+                        try{
+                            val = eval("module.exports.global." + tokens[0] + " " + tokens[1] + " " + "module.exports.global." + tokens[2]);
+                        }catch(err){
+                            vale = 0;
+                        }
+                    }
+                }else{
+                    val = self.evaluateValue(value);
+                }
+
+            }
 
             console.log("---[" + key + ", " + value + ", " + val + "]");
-
             self.result[key] = val; 
         });            
     },        
@@ -459,6 +477,7 @@ module.exports = {
                             self.global.env[name] = elements[elements.length-1].text.trim();
                         }break;
                         case "merge":{
+                            // Miranda, Jan Paul |	Dev 5 |	Lenovo |	08:52 AM |	09:37 AM | 0.76                            
                             var value = "";
                             elements.forEach((element)=>{
                                 let val = element.text.trim();
@@ -482,7 +501,8 @@ module.exports = {
                             if(value && value.length > 0){
                                 let index = 0;
                                 value.split(separator).forEach((element) => {
-                                    self.global.env[name][index++] = element;
+                                    self.global.env[name + index] = element;
+                                    index++;
                                 });
                             }
                         }break;
@@ -572,7 +592,7 @@ module.exports = {
                             //call known function
                             switch(value){
                                 case "timenow()":{
-                                    value = moment().format('hh:mm');
+                                    value = moment().format('hh:mm A');
                                 }break;
                             }
                         }
@@ -597,25 +617,53 @@ module.exports = {
                     //Match check format
                     if(value.match(re)){
                         //split by space first
-                        tVal = eval(value);
+                        //tVal = eval(value);
                     }
+                }break;
+                case "evaluate-time-now":{
+                    //Temporary value
+                    var tVal = value;
+                    let re = /\b[a-z]+\.[_a-z]+/g;
+
+                    //Match check format
+                    if(value.match(re)){
+                        //Get string time value
+                        try {
+                            tVal = eval("module.exports.global." + value);
+
+                            //Convert to time object
+                            tVal = moment(tVal, 'hh:mm A');
+                            let timeNow = moment(self.global.env.timenow, 'hh:mm A');
+                            
+                            //Subtract with time now
+                            tVal = timeNow.diff(tVal, 'hours');
+                        } catch (error) {
+                            tVal = 0;
+                        }
+                    }
+
+                    //Store data in global
+                    self.global.env[name] = tVal;
+                    //console.log("TIME DIFF: "+ tVal);
 
                     //greater-than
                     //less-than
-                    let gt = variable.greater-than;
-                    let lt = variable.less-than;
+                    //equal
+                    let gt = variable.greater;
+                    let lt = variable.lesser;
                     let eq = variable.equal;
+                    
                     if(gt != null){
                         if(tVal < gt){
-                            throw new Error(parentError +" "+ error);
+                            throw new Error(parentError +" Not greater than.");
                         }
                     }else if(lt != null){
                         if(tVal > lt){
-                            throw new Error(parentError +" "+ error);
+                            throw new Error(parentError +" ");
                         }
                     }else if(eq != null){
                         if(tVal != eq){
-                            throw new Error(parentError +" "+ error);
+                            throw new Error(parentError +" ");
                         }
                     }
                 }break;
