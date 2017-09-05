@@ -67,8 +67,8 @@ module.exports = {
                         switch(action){
                             case "login":
                             case "check":
-                            case "time":
-                            case "go":{
+                            case "biteme":
+                            case "bitemenot":{
                                 if(que){
                                     self.doAction(self, schema[action], que);
                                     actionPerformed = true;
@@ -338,12 +338,15 @@ module.exports = {
                                     if(node){
                                         error = node.text.trim() + ".";
                                         self.global.env.error = error;
+                                    }else{
+                                        error = "An unknown error occured.";
                                     }
                                 }   
 
                                 //Throw an error
-                                throw new Error(error + " Expected statuscode of "+ value +
-                                " did not match with Response " + response.statusCode);
+                                //throw new Error(error + " Expected statuscode of "+ value +
+                                //" did not match with Response " + response.statusCode);
+                                throw new Error(error);
                             }
                         }break;
                     }
@@ -464,7 +467,7 @@ module.exports = {
             }
 
             console.log("---[" + key + ", " + value + ", " + val + "]");
-            if(val != ""){
+            if(val && val != ""){
                 self.result[key] = val; 
             }
         });            
@@ -483,6 +486,7 @@ module.exports = {
             let name = key.name;
             let action = key.action;
             let error = key.error ? key.error : "Can't locate " + selector + ".";
+            let notFound = key.notFound;
 
             console.log("---[" + name + ", " + selector + ", " + action + "]");
             
@@ -492,7 +496,11 @@ module.exports = {
                 if(elements.length > 0){
                     switch(action){
                         case "get":{
-                            self.global.env[name] = elements[elements.length-1].text.trim();
+                            let tVal = elements[elements.length-1].text.trim();
+                            if(!isNaN(tVal)){
+                                tVal = parseFloat(tVal);
+                            }
+                            self.global.env[name] = tVal;
                         }break;
                         case "merge":{
                             // Miranda, Jan Paul |	Dev 5 |	Lenovo |	08:52 AM |	09:37 AM | 0.76                            
@@ -532,6 +540,10 @@ module.exports = {
                 }else{
                     //throw new Error("Can't find component.");
                     self.global.env[name] = "";
+
+                    if(notFound){
+                        self.global.env[notFound] = true;
+                    }
                 }
             }else{
                 throw new Error("Can't access the remote location.");
@@ -601,10 +613,15 @@ module.exports = {
             //Init variable properties
             let variable = schema[name];
             let value = variable.value;
-            let type = variable.type ?variable.type : 'set';
+            let type = variable.type ? variable.type : 'set';
             let error = variable.error;
+            let override = variable.override != null ? variable.override : false;
             
             console.log("---"+ name + "[" + type + ", "+ value + "("+ typeof value + ")]");
+            
+            //Evaluate override's value
+            override = self.evaluateValue(override);
+            override = override != null ? override : false;
 
             switch(type){
                 case "set":{
@@ -618,6 +635,7 @@ module.exports = {
                                 }break;
                                 case "daynow()":{
                                     value = moment().tz('Asia/Tokyo').format('e');
+                                    value = parseInt(value);                                    
                                     if(value == 0){
                                         value = 7;
                                     }
@@ -631,30 +649,42 @@ module.exports = {
                 case "equal":{
                     //Check if variable is in globals
                     //Check if value is same as given value
-                    if(self.global.env[name]){
-                        if(self.global.env[name] != value){
+                    if(!override){
+                        if(self.global.env[name]){
+                            if(self.global.env[name] != value){
+                                throw new Error(parentError +" "+ error);
+                            }
+                        }else{
                             throw new Error(parentError +" "+ error);
                         }
                     }else{
-                        throw new Error(parentError +" "+ error);
+                        console.log("<Override on equal check>");
                     }
                 }break;
                 case "greater":{
-                    if(self.global.env[name]){
-                        if(self.global.env[name] <= value){
+                    if(!override){
+                        if(self.global.env[name]){
+                            if(self.global.env[name] <= value){
+                                throw new Error(parentError +" "+ error);
+                            }
+                        }else{
                             throw new Error(parentError +" "+ error);
                         }
                     }else{
-                        throw new Error(parentError +" "+ error);
+                        console.log("<Override on greater than check>");
                     }
                 }break;
                 case "less":{
-                    if(self.global.env[name]){
-                        if(self.global.env[name] >= value){
+                    if(!override){
+                        if(self.global.env[name]){
+                            if(self.global.env[name] >= value){
+                                throw new Error(parentError +" "+ error);
+                            }
+                        }else{
                             throw new Error(parentError +" "+ error);
                         }
                     }else{
-                        throw new Error(parentError +" "+ error);
+                        console.log("<Override on less than check>");
                     }
                 }break;
                 case "in":{
@@ -671,6 +701,7 @@ module.exports = {
                         //tVal = eval(value);
                     }
                 }break;
+                //Special ODTR only
                 case "evaluate-time-now":{
                     //Temporary value
                     var tVal = value;
@@ -689,34 +720,14 @@ module.exports = {
                             //Subtract with time now
                             tVal = timeNow.diff(tVal, 'hours');
                         } catch (error) {
+                            //Set to highest value to be able to login -> 
+                            //this should be changed, i know.
                             tVal = 0;
                         }
                     }
 
                     //Store data in global
                     self.global.env[name] = tVal;
-                    //console.log("TIME DIFF: "+ tVal);
-
-                    //greater-than
-                    //less-than
-                    //equal
-                    /*let gt = variable.greater;
-                    let lt = variable.lesser;
-                    let eq = variable.equal;
-                    
-                    if(gt != null){
-                        if(tVal < gt){
-                            throw new Error(parentError +" Not greater than.");
-                        }
-                    }else if(lt != null){
-                        if(tVal > lt){
-                            throw new Error(parentError +" ");
-                        }
-                    }else if(eq != null){
-                        if(tVal != eq){
-                            throw new Error(parentError +" ");
-                        }
-                    }*/
                 }break;
             }
 
