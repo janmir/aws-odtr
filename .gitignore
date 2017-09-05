@@ -9,3 +9,5 @@ jspm_packages
 schema\.yaml
 
 schema-min\.yaml
+
+event\.json
