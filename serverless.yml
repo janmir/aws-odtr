@@ -6,7 +6,7 @@ provider:
   stage: dev
   region: ap-northeast-1
   role: arn:aws:iam::491150663186:role/service-role/basic.execution
-  memorySize: 128
+  memorySize: 192
   timeout: 10
 
 functions:
@@ -15,8 +15,8 @@ functions:
     name: aws-odtr
     description: Login automation
     environment:
-      DEBUG: true
-      DEPLOY: false
+      DEBUG: false
+      DEPLOY: true
       BUCKET: janmir
       FILE: schema.yaml
     tags:
@@ -25,5 +25,6 @@ functions:
 package:
   exclude:
     - schema.yaml
+    - schema-min.yaml
     - README.md
     - event.json
