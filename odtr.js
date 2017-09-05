@@ -6,7 +6,7 @@ const fs = require('fs');
 const request = require("request");
 const sync = require('deasync');
 const $ = require('fast-html-parser');
-const moment = require('moment');
+const moment = require('moment-timezone');
 
 var schema_cache = null;
 
@@ -68,7 +68,7 @@ module.exports = {
                             case "error":break;
                             case "login":
                             case "check":
-                            case "time-in":{
+                            case "time":{
                                 self.doAction(self, schema[action], que);
                                 actionPerformed = true;
                             }break;
@@ -287,6 +287,7 @@ module.exports = {
             //Perform HTTP Request
             request(options, function(error, _response, _body){
                 if (!error) {
+                    console.log("<Request Done...>");
                     response = _response;
                     done = true;
                 }else{
@@ -297,6 +298,7 @@ module.exports = {
             //Loop while its not yet done.
             console.log("<Waiting for async task to finish...>");
             sync.loopWhile(()=>{return !done});
+            console.log("<Continue...>");
             
             /********************Do processing of response here********************/
             //HTML Parse body
@@ -592,7 +594,7 @@ module.exports = {
                             //call known function
                             switch(value){
                                 case "timenow()":{
-                                    value = moment().format('hh:mm A');
+                                    value = moment().tz('Asia/Tokyo').format('hh:mm A');
                                 }break;
                             }
                         }
@@ -600,11 +602,31 @@ module.exports = {
 
                     self.global.env[name] = value;
                 }break;
-                case "assert":{
+                case "equal":{
                     //Check if variable is in globals
                     //Check if value is same as given value
-                    if(self.global.env[name] && self.global.env[name] == value){
-                        //Nothing to do my dear.
+                    if(self.global.env[name]){
+                        if(self.global.env[name] != value){
+                            throw new Error("Values not equal.");
+                        }
+                    }else{
+                        throw new Error(parentError +" "+ error);
+                    }
+                }break;
+                case "greater":{
+                    if(self.global.env[name]){
+                        if(self.global.env[name] <= value){
+                            throw new Error("Value is less than expected.");
+                        }
+                    }else{
+                        throw new Error(parentError +" "+ error);
+                    }
+                }break;
+                case "less":{
+                    if(self.global.env[name]){
+                        if(self.global.env[name] >= value){
+                            throw new Error("Value is greater than expected.");
+                        }
                     }else{
                         throw new Error(parentError +" "+ error);
                     }
