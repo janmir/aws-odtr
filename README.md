@@ -5,10 +5,10 @@
 - [x] Yaml schema read from cache.
 - [x] Yaml parse to json.
 - [x] Handle **Login** action.
-- [ ] Handle **Check** action.
-- [ ] Handle **Time-in-out** action.
-- [ ] Handle **Time-in** action.
-- [ ] Handle **Time-out** action.
+- [x] Handle **Check** action.
+- [x] Handle **Time-in-out** action.
+- [x] Handle **Time-in** action.
+- [x] Handle **Time-out** action.
 - [x] **If** condition check. 
     - [x] **Query**
         - [x] Type validation.
@@ -16,7 +16,7 @@
     - [x] **Variable**
         - [x] Assigned check.
         - [x] Value check.
-- [ ] **Then** Perform action.
+- [x] **Then** Perform action.
     - [ ] ~~**Components** handler for **Then**~~.
         - [ ] ~~CSS selector support.~~
         - [ ] ~~Value injection.~~
@@ -29,6 +29,9 @@
 - [x] **That** Perform action, Result check & set required values.
 - [x] **Querystring** Handler implementation
 - [x] **Variable** Handler implementation
+    - [x] Equal
+    - [x] Greater Than
+    - [x] Less Than
 - [ ] ~~**Components** Handler implementation~~
 - [x] **Actions** Handler implementation
 - [x] **Url** Handler implementation
@@ -38,8 +41,10 @@
     - [x] Handling Cookies    
     - [x] Handling Redirects    
 - [ ] **Notification** Handler implementation
-- [ ] Error message handling
-    - [ ] Add variable support in yaml file.
+- [x] **Return** Handler implementation
+- [x] Error message handling
+    - [x] Add variable support in yaml file.
+- [x] Timezone support for Asia/Tokyo
 
 ### Disclaimer
 > :cat: This is a personal project of mine, I just need somewhere to store and track it. Sorry if it may not
