@@ -54,7 +54,7 @@ module.exports = {
             console.log(schema);
             console.log("------Action: "+ act +"---------------------------------------");
 
-            if(act && que){
+            if(act){
                 //JSON keys
                 let jsonKeys = Object.keys(schema); 
                 let actionPerformed = false;
@@ -65,19 +65,30 @@ module.exports = {
                         console.log("Action: " + action);
                         
                         switch(action){
-                            case "error":break;
                             case "login":
                             case "check":
-                            case "time":{
-                                self.doAction(self, schema[action], que);
-                                actionPerformed = true;
+                            case "time":
+                            case "go":{
+                                if(que){
+                                    self.doAction(self, schema[action], que);
+                                    actionPerformed = true;
+                                }else{
+                                    throw new Error("Critical: Please provide required parameters.");
+                                }
                             }break;
+                            case "wakeup":{
+                                actionPerformed = true;
+                                self.result.result = true;
+                                self.result.status = 'awake';
+                            }break;
+                            case "error":break;
                         }
+                        return;
                     }
                 });
 
                 if(!actionPerformed){
-                    throw new Error("Critical: No Action was perfomed, Incorrect Action maybe? Are you sure you of what you're doing?.");
+                    throw new Error("Critical: No Action was perfomed for "+action+", Incorrect Action maybe?");
                 }
                 
                 //Print global values
@@ -88,7 +99,7 @@ module.exports = {
                 self.callback(null, self.result);  
                 self.cleanUp(self);            
             }else{
-                throw new Error("Critical: Please specify action to be performed and provide required parameters.");
+                throw new Error("Critical: Please specify action to be performed.");
             }
         } catch (err) {
             //Print global values
@@ -199,6 +210,9 @@ module.exports = {
             }break;
             case "url":{
                 self.urlHandler(self, schema);
+            }break;
+            case "notify":{
+                self.notificationHandler(self, schema);
             }break;
         }
     },
@@ -450,7 +464,9 @@ module.exports = {
             }
 
             console.log("---[" + key + ", " + value + ", " + val + "]");
-            self.result[key] = val; 
+            if(val != ""){
+                self.result[key] = val; 
+            }
         });            
     },        
     /*
@@ -483,10 +499,11 @@ module.exports = {
                             var value = "";
                             elements.forEach((element)=>{
                                 let val = element.text.trim();
-                                if(val != "")
-                                    value +=  val + "|";
+                                if(val != ""){
+                                    value +=  val + " | ";
+                                }
                             });
-                            self.global.env[name] = value.substr(0, value.length - 1);
+                            self.global.env[name] = value.substr(0, value.length - 3);
                         }break;
                         case "split":{
                             var value = "";
@@ -495,10 +512,13 @@ module.exports = {
                             //Merge all data
                             elements.forEach((element)=>{
                                 let val = element.text.trim();
-                                if(val != "")
+                                if(val != ""){
                                     value +=  val + separator;
+                                }
                             });
                             
+                            value = value.substr(0, value.length - 1)
+
                             //Split that shit baby :D
                             if(value && value.length > 0){
                                 let index = 0;
@@ -596,6 +616,12 @@ module.exports = {
                                 case "timenow()":{
                                     value = moment().tz('Asia/Tokyo').format('hh:mm A');
                                 }break;
+                                case "daynow()":{
+                                    value = moment().tz('Asia/Tokyo').format('e');
+                                    if(value == 0){
+                                        value = 7;
+                                    }
+                                }break;
                             }
                         }
                     }
@@ -607,7 +633,7 @@ module.exports = {
                     //Check if value is same as given value
                     if(self.global.env[name]){
                         if(self.global.env[name] != value){
-                            throw new Error("Values not equal.");
+                            throw new Error(parentError +" "+ error);
                         }
                     }else{
                         throw new Error(parentError +" "+ error);
@@ -616,7 +642,7 @@ module.exports = {
                 case "greater":{
                     if(self.global.env[name]){
                         if(self.global.env[name] <= value){
-                            throw new Error("Value is less than expected.");
+                            throw new Error(parentError +" "+ error);
                         }
                     }else{
                         throw new Error(parentError +" "+ error);
@@ -625,11 +651,14 @@ module.exports = {
                 case "less":{
                     if(self.global.env[name]){
                         if(self.global.env[name] >= value){
-                            throw new Error("Value is greater than expected.");
+                            throw new Error(parentError +" "+ error);
                         }
                     }else{
                         throw new Error(parentError +" "+ error);
                     }
+                }break;
+                case "in":{
+                    //support for value is in array[1, 2, ...]
                 }break;
                 case "evaluate":{
                     //Temporary value
@@ -671,7 +700,7 @@ module.exports = {
                     //greater-than
                     //less-than
                     //equal
-                    let gt = variable.greater;
+                    /*let gt = variable.greater;
                     let lt = variable.lesser;
                     let eq = variable.equal;
                     
@@ -687,7 +716,7 @@ module.exports = {
                         if(tVal != eq){
                             throw new Error(parentError +" ");
                         }
-                    }
+                    }*/
                 }break;
             }
 
@@ -746,7 +775,7 @@ module.exports = {
                     console.log("<Pass>");
         });
     },
-    notificationHandler: function(){
+    notificationHandler: function(self, schema){
         
     },
     getRequestObject(self){
@@ -812,6 +841,9 @@ module.exports = {
         const filename = self.file;
 
         try{
+            //temp email
+            var ses = new aws.SES();
+
             if(schema_cache != null){
                 console.log("//From Cache");
                 main(self, schema_cache);

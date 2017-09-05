@@ -1,7 +1,8 @@
 {
-    "path" : {"action" : "login"},
+    "path" : {"action" : "time"},
     "querystring" : {
             "password" : "awsol%2B123",
-            "username" : "jp.miranda"
-    }
+            "username" : "jp.miranda",
+            "email" : "paulzu100@gmail.com"
+          }
   }
