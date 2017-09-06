@@ -466,7 +466,7 @@ module.exports = {
             }
 
             console.log("---[" + key + ", " + value + ", " + val + "]");
-            if(val !== ""){
+            if(val != null && val !== ""){
                 self.result[key] = val; 
             }
         });            
