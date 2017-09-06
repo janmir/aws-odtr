@@ -30,7 +30,6 @@ module.exports = {
     file:null,
     current_time: null,
     global:{
-        location: null,
         request: null,
         cookies: {},
         env: {}
@@ -43,65 +42,65 @@ module.exports = {
 
     main: function(self, schema){
 
-        try {
-            const act = self.events.path.action;
-            const que = self.events.querystring;
+        //try {
+        const act = self.events.path.action;
+        const que = self.events.querystring;
+        
+        //cache schema
+        schema_cache = schema;
+
+        //log value
+        console.log(schema);
+        console.log("------Action: "+ act +"---------------------------------------");
+
+        if(act){
+            //JSON keys
+            let jsonKeys = Object.keys(schema); 
+            let actionPerformed = false;
             
-            //cache schema
-            schema_cache = schema;
-    
-            //log value
-            console.log(schema);
-            console.log("------Action: "+ act +"---------------------------------------");
-
-            if(act){
-                //JSON keys
-                let jsonKeys = Object.keys(schema); 
-                let actionPerformed = false;
-                
-                //Check every action
-                jsonKeys.forEach(function(action) {
-                    if(act === action){
-                        console.log("Action: " + action);
-                        
-                        switch(action){
-                            case "login":
-                            case "check":
-                            case "biteme":
-                            case "bitemenot":{
-                                if(que){
-                                    self.doAction(self, schema[action], que);
-                                    actionPerformed = true;
-                                }else{
-                                    throw new Error("Critical: Please provide required parameters.");
-                                }
-                            }break;
-                            case "wakeup":{
+            //Check every action
+            jsonKeys.forEach(function(action) {
+                if(act === action){
+                    console.log("Action: " + action);
+                    
+                    switch(action){
+                        case "login":
+                        case "check":
+                        case "biteme":
+                        case "bitemenot":{
+                            if(que){
+                                self.doAction(self, schema[action], que);
                                 actionPerformed = true;
-                                self.result.result = true;
-                                self.result.status = 'awake';
-                            }break;
-                            case "error":break;
-                        }
-                        return;
+                            }else{
+                                throw new Error("Critical: Please provide required parameters.");
+                            }
+                        }break;
+                        case "wakeup":{
+                            actionPerformed = true;
+                            self.result.result = true;
+                            self.result.status = 'awake';
+                        }break;
+                        case "error":break;
                     }
-                });
-
-                if(!actionPerformed){
-                    throw new Error("Critical: No Action was perfomed for "+action+", Incorrect Action maybe?");
+                    return;
                 }
-                
-                //Print global values
-                console.log("------------GLOBAL------------");
-                console.log(self.global);                        
-                console.log("------------RESULTS------------");
-                
-                self.callback(null, self.result);  
-                self.cleanUp(self);            
-            }else{
-                throw new Error("Critical: Please specify action to be performed.");
+            });
+
+            if(!actionPerformed){
+                throw new Error("Critical: No Action was perfomed for "+action+", Incorrect Action maybe?");
             }
-        } catch (err) {
+            
+            //Print global values
+            console.log("------------GLOBAL------------");
+            console.log(self.global);                        
+            console.log("------------RESULTS------------");
+            
+            self.callback(null, self.result);  
+            self.cleanUp(self);            
+        }else{
+            throw new Error("Critical: Please specify action to be performed.");
+        }
+        /*} catch (err) {
             //Print global values
             console.log("------------GLOBAL------------");
             console.log(self.global); 
@@ -110,7 +109,7 @@ module.exports = {
             self.result.result = false;            
             self.callback(err, self.result);  
             self.cleanUp(self);
-        }
+        }*/
     },
     doAction: function(self, action, querystring){
         //console.log(action);
@@ -457,7 +456,7 @@ module.exports = {
                         try{
                             val = eval("module.exports.global." + tokens[0] + " " + tokens[1] + " " + "module.exports.global." + tokens[2]);
                         }catch(err){
-                            vale = 0;
+                            val = 0;
                         }
                     }
                 }else{
@@ -467,7 +466,7 @@ module.exports = {
             }
 
             console.log("---[" + key + ", " + value + ", " + val + "]");
-            if(val && val != ""){
+            if(val !== ""){
                 self.result[key] = val; 
             }
         });            
@@ -497,17 +496,21 @@ module.exports = {
                     switch(action){
                         case "get":{
                             let tVal = elements[elements.length-1].text.trim();
-                            if(!isNaN(tVal)){
-                                tVal = parseFloat(tVal);
+                            //console.log("component:" + name + ":'" + tVal + "'");
+                            
+                            if(tVal.length > 0 && !isNaN(tVal)){
+                                self.global.env[name] = parseFloat(tVal);
+                            }else{
+                                self.global.env[name] = tVal;
                             }
-                            self.global.env[name] = tVal;
+                            
                         }break;
                         case "merge":{
                             // Miranda, Jan Paul |	Dev 5 |	Lenovo |	08:52 AM |	09:37 AM | 0.76                            
                             var value = "";
                             elements.forEach((element)=>{
                                 let val = element.text.trim();
-                                if(val != ""){
+                                if(val !== ""){
                                     value +=  val + " | ";
                                 }
                             });
@@ -520,7 +523,7 @@ module.exports = {
                             //Merge all data
                             elements.forEach((element)=>{
                                 let val = element.text.trim();
-                                if(val != ""){
+                                if(val !== ""){
                                     value +=  val + separator;
                                 }
                             });
@@ -615,14 +618,12 @@ module.exports = {
             let value = variable.value;
             let type = variable.type ? variable.type : 'set';
             let error = variable.error;
-            let override = variable.override != null ? variable.override : false;
-            
-            console.log("---"+ name + "[" + type + ", "+ value + "("+ typeof value + ")]");
+            let override = variable.override ? self.evaluateValue(variable.override) : false;
+            override = override ? override : false;
             
             //Evaluate override's value
-            override = self.evaluateValue(override);
-            override = override != null ? override : false;
-
+            console.log("---"+ name + "[" + type + ", "+ value + "("+ typeof value + "), "+override+"]");
+ 
             switch(type){
                 case "set":{
                     if(typeof value == "string"){
@@ -720,8 +721,6 @@ module.exports = {
                             //Subtract with time now
                             tVal = timeNow.diff(tVal, 'hours');
                         } catch (error) {
-                            //Set to highest value to be able to login -> 
-                            //this should be changed, i know.
                             tVal = 0;
                         }
                     }
@@ -776,14 +775,18 @@ module.exports = {
                 //Value validity check
                 if(self.validateString(type, match, value)){
                     //If Query is found Add to global
-                    self.global.env[key] = value;
+                    console.log("<Set: "+key+" to '"+value+"'>");
+
+                    if(value){
+                        self.global.env[key] = value;
+                    }
                 }else{
                     throw new Error(error);
                 }
             }else{
                 throw new Error(parentError);
             }
-                    console.log("<Pass>");
+            console.log("<Pass>");
         });
     },
     notificationHandler: function(self, schema){
@@ -836,7 +839,8 @@ module.exports = {
             try {
                 value = eval("module.exports.global." + value);
             } catch (error) {
-                throw new Error(error.message);
+                value = null;
+                //throw new Error(error.message);
             }
         }
         return value;
@@ -890,11 +894,17 @@ module.exports = {
                     });
                 }
             }
-        } catch (err) {
-            console.log("--------------ERROR-RESULT--------------");       
+        } catch (error) {
+            console.log("------------GLOBAL------------");
+            console.log(self.global); 
+            console.log("------------ERROR-RESULTS------------");
 
+            //Make Error Message
+            self.result = {};
             self.result.result = false;
-            self.callback(err, self.result);  
+            self.result.message = error.message;
+
+            self.callback(null, self.result);  
             self.cleanUp(self);
         }
     },
@@ -907,7 +917,6 @@ module.exports = {
         self.bucket = null;
         self.file = null;
         self.global = {
-            location: null,
             request: null,
             cookies: {},
             env: {}
