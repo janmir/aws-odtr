@@ -399,6 +399,7 @@ module.exports = {
 
             //Store listed id values in 'cache' to global variables
             if(cache){
+                //Todo: check if has # if not assign directly.-> cancel and login button can be saved here
                 console.log("<Title: "+ html.querySelector('title').text +">")
 
                 Object.keys(cache).forEach((key) => {
