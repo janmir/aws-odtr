@@ -30,7 +30,7 @@ module.exports = {
     file:null,
     current_time: null,
     global:{
-        request: null,
+        //request: null,
         cookies: {},
         env: {}
     },
@@ -100,16 +100,6 @@ module.exports = {
         }else{
             throw new Error("Critical: Please specify action to be performed.");
         }
-        /*} catch (err) {
-            //Print global values
-            console.log("------------GLOBAL------------");
-            console.log(self.global); 
-            console.log("------------ERROR-RESULTS------------");
-            
-            self.result.result = false;            
-            self.callback(err, self.result);  
-            self.cleanUp(self);
-        }*/
     },
     doAction: function(self, action, querystring){
         //console.log(action);
@@ -288,7 +278,7 @@ module.exports = {
                 url: url,
                 method: method,
                 headers: header,
-                body: body ? body : null,
+                body: body ? body : "",
                 jar: cookieJar
             };
 
@@ -308,11 +298,26 @@ module.exports = {
                 }
             });
 
-            //Loop while its not yet done.
             console.log("<Waiting for async task to finish...>");
+            while(!done) {
+                sync.runLoopOnce();
+            }
+            console.log("<Continuing...>");
+
+            //Loop while its not yet done.
+            /*console.log("<Waiting for async task to finish...>");
             sync.loopWhile(()=>{return !done});
+            console.log("<Continue...>");*/
+
+            /*console.log("<Waiting for async task to finish 2...>");
+            response = request(method, url, {
+                headers: header,
+                body: body ? body : "",
+                followRedirects: false
+            });
             console.log("<Continue...>");
-            
+            response.body = response.body.toString('utf8');*/
+
             /********************Do processing of response here********************/
             //HTML Parse body
             var html = $.parse(response.body);
@@ -354,7 +359,6 @@ module.exports = {
 
             //All Pass store current location
             self.global.env.location = response.request.href;
-            //self.response = response;
             console.log("<Current Location: "+ self.global.env.location +">");
 
             //All pass store cookies
@@ -368,6 +372,30 @@ module.exports = {
                     self.global.cookies[cookie.key] = value;
                 });
             }
+
+            //New Set cookie
+            //'set-cookie': [ 'ASP.NET_SessionId=g1mvt4yxfl2idl45c0vhpo45; path=/; HttpOnly' ]
+            /*const cookies = response.headers['set-cookie'];
+            if(cookies && cookies.length > 0){
+                cookies.forEach((cookie) => {
+                    if(cookie && cookie.length > 0){
+                        let splitCookie = cookie.split(";");
+                        splitCookie.forEach((entry) => {
+                            if(entry && entry.length > 0){
+                                //trim it
+                                entry = entry.trim();
+                                //Split it
+                                let splitEntry = entry.split("=");
+                                let value = splitEntry[1] ? splitEntry[1] : "";
+                                //assign it
+                                self.global.cookies[splitEntry[0]] = value;
+                                //print it
+                                //console.log(entry);
+                            }
+                        });
+                    }
+                });
+            }*/
 
             //Store listed id values in 'cache' to global variables
             if(cache){
@@ -389,6 +417,7 @@ module.exports = {
             //Handler redirects manually
             if(response.statusCode == 302){
                 console.log("<Redirecting to: "+ response.headers.location +">");
+                //self.global.env.location = response.headers.location;
             }
         });
     },
@@ -559,9 +588,9 @@ module.exports = {
     - Goto url
     */
     urlHandler: function(self, schema){
-        let request = self.getRequestObject(self);
+        //let request = self.getRequestObject(self);
 
-        if(request){
+        //if(request){
             let error = schema.error ? schema.error : " ";
             let path = schema.path;
             let action = schema.action;
@@ -596,7 +625,7 @@ module.exports = {
                     self.requestsHandler(self, data);
                 }break;
             }
-        }
+        //}
     },
     /*
     - Handle globals
@@ -653,10 +682,10 @@ module.exports = {
                     if(!override){
                         if(self.global.env[name]){
                             if(self.global.env[name] != value){
-                                throw new Error(parentError +" "+ error);
+                                throw new Error(error);
                             }
                         }else{
-                            throw new Error(parentError +" "+ error);
+                            throw new Error(error);
                         }
                     }else{
                         console.log("<Override on equal check>");
@@ -666,10 +695,10 @@ module.exports = {
                     if(!override){
                         if(self.global.env[name]){
                             if(self.global.env[name] <= value){
-                                throw new Error(parentError +" "+ error);
+                                throw new Error(error);
                             }
                         }else{
-                            throw new Error(parentError +" "+ error);
+                            throw new Error(error);
                         }
                     }else{
                         console.log("<Override on greater than check>");
@@ -679,10 +708,10 @@ module.exports = {
                     if(!override){
                         if(self.global.env[name]){
                             if(self.global.env[name] >= value){
-                                throw new Error(parentError +" "+ error);
+                                throw new Error(error);
                             }
                         }else{
-                            throw new Error(parentError +" "+ error);
+                            throw new Error(error);
                         }
                     }else{
                         console.log("<Override on less than check>");
@@ -917,7 +946,7 @@ module.exports = {
         self.bucket = null;
         self.file = null;
         self.global = {
-            request: null,
+            //request: null,
             cookies: {},
             env: {}
         };

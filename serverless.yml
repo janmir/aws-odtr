@@ -6,7 +6,7 @@ provider:
   stage: dev
   region: ap-northeast-1
   role: arn:aws:iam::491150663186:role/service-role/basic.execution
-  memorySize: 192
+  memorySize: 256
   timeout: 10
 
 functions:
