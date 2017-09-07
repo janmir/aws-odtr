@@ -42,63 +42,76 @@ module.exports = {
 
     main: function(self, schema){
 
-        //try {
-        const act = self.events.path.action;
-        const que = self.events.querystring;
-        
-        //cache schema
-        schema_cache = schema;
-
-        //log value
-        console.log(schema);
-        console.log("------Action: "+ act +"---------------------------------------");
-
-        if(act){
-            //JSON keys
-            let jsonKeys = Object.keys(schema); 
-            let actionPerformed = false;
+        try {
+            const act = self.events.path.action;
+            const que = self.events.querystring;
             
-            //Check every action
-            jsonKeys.forEach(function(action) {
-                if(act === action){
-                    console.log("Action: " + action);
-                    
-                    switch(action){
-                        case "login":
-                        case "check":
-                        case "biteme":
-                        case "bitemenot":{
-                            if(que){
-                                self.doAction(self, schema[action], que);
+            //cache schema
+            schema_cache = schema;
+
+            //log value
+            console.log(schema);
+            console.log("------Action: "+ act +"---------------------------------------");
+
+            if(act){
+                //JSON keys
+                let jsonKeys = Object.keys(schema); 
+                let actionPerformed = false;
+                
+                //Check every action
+                jsonKeys.forEach(function(action) {
+                    if(act === action){
+                        console.log("Action: " + action);
+                        
+                        switch(action){
+                            case "login":
+                            case "check":
+                            case "biteme":
+                            case "bitemenot":{
+                                if(que){
+                                    self.doAction(self, schema[action], que);
+                                    actionPerformed = true;
+                                }else{
+                                    throw new Error("Critical: Please provide required parameters.");
+                                }
+                            }break;
+                            case "wakeup":{
                                 actionPerformed = true;
-                            }else{
-                                throw new Error("Critical: Please provide required parameters.");
-                            }
-                        }break;
-                        case "wakeup":{
-                            actionPerformed = true;
-                            self.result.result = true;
-                            self.result.status = 'awake';
-                        }break;
-                        case "error":break;
+                                self.result.result = true;
+                                self.result.status = 'awake';
+                            }break;
+                            case "error":break;
+                        }
+                        return;
                     }
-                    return;
-                }
-            });
+                });
 
-            if(!actionPerformed){
-                throw new Error("Critical: No Action was perfomed for "+action+", Incorrect Action maybe?");
+                if(!actionPerformed){
+                    throw new Error("Critical: No Action was perfomed for "+action+", Incorrect Action maybe?");
+                }
+                
+                //Print global values
+                console.log("------------GLOBAL------------");
+                console.log(self.global);                        
+                console.log("------------RESULTS------------");
+                
+                self.callback(null, self.result);  
+                self.cleanUp(self);            
+            }else{
+                throw new Error("Critical: Please specify action to be performed.");
             }
-            
-            //Print global values
+        } catch (error) {
             console.log("------------GLOBAL------------");
-            console.log(self.global);                        
-            console.log("------------RESULTS------------");
-            
+            console.log(self.global); 
+            console.log("------------ERROR-RESULTS------------");
+
+            //Make Error Message
+            self.result = {};
+            self.result.result = false;
+            self.result.message = error.message;
+
             self.callback(null, self.result);  
-            self.cleanUp(self);            
-        }else{
-            throw new Error("Critical: Please specify action to be performed.");
+            self.cleanUp(self);
         }
     },
     doAction: function(self, action, querystring){
@@ -364,13 +377,17 @@ module.exports = {
             //All pass store cookies
             var cookies = cookieJar._jar.toJSON();
             if(cookies.cookies.length > 0){
-                cookies.cookies.forEach((cookie) => {
-                    let value = cookie.value ? cookie.value : "";
-                    console.log("----cookie: "+cookie.key+": "+value);
-                    
-                    //Store in global cache
-                    self.global.cookies[cookie.key] = value;
-                });
+                try {
+                    cookies.cookies.forEach((cookie) => {
+                        let value = cookie.value ? cookie.value : "";
+                        console.log("----cookie: "+cookie.key+": "+value);
+                        
+                        //Store in global cache
+                        self.global.cookies[cookie.key] = value;
+                    });
+                } catch (err) {
+                    //Suppress error -- cookies are unpredictable
+                }
             }
 
             //New Set cookie
@@ -943,8 +960,10 @@ module.exports = {
                         Bucket: self.bucket,
                         Key: filename
                     }
+                    var done = false;
                     s3.getObject(params, function(err, data) {
                         if(!err){ 
+                            done = true;
                             let file = data.Body.toString('utf-8');
                             let config = yaml.safeLoad(file);
                             let indentedJson = JSON.stringify(config, null, 4);
@@ -954,6 +973,9 @@ module.exports = {
                             throw new Error(err.message);
                         } 
                     });
+                    while(!done) {
+                        sync.runLoopOnce();
+                    }
                 }
             }
         } catch (error) {
