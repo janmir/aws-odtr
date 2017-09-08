@@ -846,7 +846,56 @@ module.exports = {
         });
     },
     notificationHandler: function(self, schema){
-        
+
+        if(self.global.env.email && schema){
+            let email_to = self.global.env.email;
+            let email_from = "paulzu100@gmail.com";
+            let type = schema.type;
+            let message = schema.message;
+
+            console.log("---[ type: " + type + ", message: " + message + "]---");
+
+            switch(type){
+                case "email":{
+                    //temp email
+                    let ses = new aws.SES({
+                        region:'us-east-1'
+                    });
+
+                    let params = {
+                        Destination: {
+                            ToAddresses: [email_to]
+                        },
+                        Message: {
+                            Body: {
+                            Html: {
+                                Charset: 'UTF-8',
+                                Data: message
+                            },
+                            Text: {
+                                Charset: 'UTF-8',
+                                Data: 'This is the message body in text format.'
+                            }
+                            },
+                            Subject: {
+                            Charset: 'UTF-8',
+                            Data: 'SES Mail'
+                            }
+                        },
+                        ReturnPath: email_from,
+                        Source: email_from
+                    }
+
+                    ses.sendEmail(params, (err, data) => {
+                        if (err) console.log(err, err.stack)
+                        else console.log(data)
+                    })
+                }break;
+                case "push":{
+                }break;
+            }
+            
+        }
     },
     getRequestObject(self){
         if(self.global.request == null){
@@ -912,40 +961,6 @@ module.exports = {
         const filename = self.file;
 
         try{
-            //temp email
-            /*var ses = new aws.SES({
-                region:'us-east-1'
-            });
-
-            const params2 = {
-                Destination: {
-                    ToAddresses: ['paulzu100@gmail.com']
-                },
-                Message: {
-                    Body: {
-                    Html: {
-                        Charset: 'UTF-8',
-                        Data:
-                        'This message body contains HTML formatting, like <a class="ulink" href="http://docs.aws.amazon.com/ses/latest/DeveloperGuide" target="_blank">Amazon SES Developer Guide</a>.'
-                    },
-                    Text: {
-                        Charset: 'UTF-8',
-                        Data: 'This is the message body in text format.'
-                    }
-                    },
-                    Subject: {
-                    Charset: 'UTF-8',
-                    Data: 'Test email from code'
-                    }
-                },
-                ReturnPath: 'paulzu100@gmail.com',
-                Source: 'paulzu100@gmail.com'
-            }
-
-            ses.sendEmail(params2, (err, data) => {
-                if (err) console.log(err, err.stack)
-                else console.log(data)
-            })*/
 
             if(schema_cache != null){
                 console.log("//From Cache");

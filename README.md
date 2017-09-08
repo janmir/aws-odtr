@@ -1,4 +1,7 @@
 # Time Record Automation
+## Overview
+:panda_face: This system is driven by a configuration file that contains all the instructions 
+to be perfomed sequentially.
 ### Task Tracker Yeah :smiley:!
 - [x] Yaml schema read local.
 - [x] Yaml schema read S3 bucket.
@@ -41,10 +44,14 @@
     - [x] Handling Cookies    
     - [x] Handling Redirects    
 - [ ] **Notification** Handler implementation
+    - [x] Email
+    - [ ] Push Message
 - [x] **Return** Handler implementation
 - [x] Error message handling
     - [x] Add variable support in yaml file.
 - [x] Timezone support for Asia/Tokyo
+- [x] Performance monitor
+- [ ] Slack integration!
 
 ### Disclaimer
 > :cat: This is a personal project of mine, I just need somewhere to store and track it. Sorry if it may not
