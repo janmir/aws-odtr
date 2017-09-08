@@ -7,6 +7,7 @@ const request = require("request");
 const sync = require('deasync');
 const $ = require('fast-html-parser');
 const moment = require('moment-timezone');
+const now = require("performance-now");
 
 var schema_cache = null;
 
@@ -37,70 +38,78 @@ module.exports = {
     result:{
         result: false
     },
+    performance:{
+        start: 0,
+        end: 0
+    },
     //response: null,
     html: null,
 
     main: function(self, schema){
 
-        try {
-            const act = self.events.path.action;
-            const que = self.events.querystring;
+        //try {
+        const act = self.events.path.action;
+        const que = self.events.querystring;
+        
+        //cache schema
+        schema_cache = schema;
+
+        //log value
+        console.log(schema);
+        console.log("------Action: "+ act +"---------------------------------------");
+
+        if(act){
+            //JSON keys
+            let jsonKeys = Object.keys(schema); 
+            let actionPerformed = false;
             
-            //cache schema
-            schema_cache = schema;
-
-            //log value
-            console.log(schema);
-            console.log("------Action: "+ act +"---------------------------------------");
-
-            if(act){
-                //JSON keys
-                let jsonKeys = Object.keys(schema); 
-                let actionPerformed = false;
-                
-                //Check every action
-                jsonKeys.forEach(function(action) {
-                    if(act === action){
-                        console.log("Action: " + action);
-                        
-                        switch(action){
-                            case "login":
-                            case "check":
-                            case "biteme":
-                            case "bitemenot":{
-                                if(que){
-                                    self.doAction(self, schema[action], que);
-                                    actionPerformed = true;
-                                }else{
-                                    throw new Error("Critical: Please provide required parameters.");
-                                }
-                            }break;
-                            case "wakeup":{
+            //Check every action
+            jsonKeys.forEach(function(action) {
+                if(act === action){
+                    console.log("Action: " + action);
+                    
+                    switch(action){
+                        case "login":
+                        case "check":
+                        case "biteme":
+                        case "bitemenot":{
+                            if(que){
+                                self.doAction(self, schema[action], que);
                                 actionPerformed = true;
-                                self.result.result = true;
-                                self.result.status = 'awake';
-                            }break;
-                            case "error":break;
-                        }
-                        return;
+                            }else{
+                                throw new Error("Critical: Please provide required parameters.");
+                            }
+                        }break;
+                        case "wakeup":{
+                            actionPerformed = true;
+                            self.result.result = true;
+                            self.result.status = 'awake';
+                        }break;
+                        case "error":break;
                     }
-                });
-
-                if(!actionPerformed){
-                    throw new Error("Critical: No Action was perfomed for "+action+", Incorrect Action maybe?");
+                    return;
                 }
-                
-                //Print global values
-                console.log("------------GLOBAL------------");
-                console.log(self.global);                        
-                console.log("------------RESULTS------------");
-                
-                self.callback(null, self.result);  
-                self.cleanUp(self);            
-            }else{
-                throw new Error("Critical: Please specify action to be performed.");
+            });
+
+            if(!actionPerformed){
+                throw new Error("Critical: No Action was perfomed for "+action+", Incorrect Action maybe?");
             }
-        } catch (error) {
+            
+            //Exec time
+            self.performance.end = now();
+
+            //Print global values
+            console.log("------------GLOBAL------------");
+            console.log(self.global);                        
+            console.log("------------RESULTS------------");
+            
+            self.result.execution = +(self.performance.end - self.performance.start).toFixed(2);
+            self.callback(null, self.result);  
+            self.cleanUp(self);   
+        }else{
+            throw new Error("Critical: Please specify action to be performed.");
+        }
+        /*} catch (error) {
             console.log("------------GLOBAL------------");
             console.log(self.global); 
             console.log("------------ERROR-RESULTS------------");
@@ -112,7 +121,7 @@ module.exports = {
 
             self.callback(null, self.result);  
             self.cleanUp(self);
-        }
+        }*/
     },
     doAction: function(self, action, querystring){
         //console.log(action);
@@ -983,9 +992,13 @@ module.exports = {
             console.log(self.global); 
             console.log("------------ERROR-RESULTS------------");
 
+            //Exec time
+            self.performance.end = now();
+            
             //Make Error Message
             self.result = {};
             self.result.result = false;
+            self.result.execution = +(self.performance.end - self.performance.start).toFixed(2);
             self.result.message = error.message;
 
             self.callback(null, self.result);  
@@ -1007,6 +1020,7 @@ module.exports = {
         };
         self.result = {};
         self.html = null;
+
         console.log("<**************Cleanup End**************>");
     }
 }

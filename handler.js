@@ -1,8 +1,12 @@
 'use strict';
 
 const odtr = require('./odtr');
+const now = require("performance-now");
 
-module.exports.main = (events, context, callback) => {  
+module.exports.main = (events, context, callback) => { 
+  //Performance logging
+  odtr.performance.start = now();
+
   //init globals
   odtr.callback = callback;
   odtr.events = events;

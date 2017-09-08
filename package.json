@@ -23,6 +23,7 @@
     "js-yaml": "^3.9.1",
     "moment": "^2.18.1",
     "moment-timezone": "^0.5.13",
+    "performance-now": "^2.1.0",
     "request": "^2.81.0"
   }
 }
