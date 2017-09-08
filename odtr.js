@@ -1034,6 +1034,10 @@ module.exports = {
             env: {}
         };
         self.result = {};
+        self.performance = {
+            start: 0,
+            end: 0
+        };
         self.html = null;
 
         console.log("<**************Cleanup End**************>");

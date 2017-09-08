@@ -1,6 +1,6 @@
 # Time Record Automation
 ## Overview
-:panda_face: This system is driven by a configuration file that contains all the instructions 
+> :panda_face: This system is driven by a configuration file that contains all the instructions 
 to be perfomed sequentially.
 ### Task Tracker Yeah :smiley:!
 - [x] Yaml schema read local.
