@@ -51,6 +51,8 @@ to be perfomed sequentially.
     - [x] Add variable support in yaml file.
 - [x] Timezone support for Asia/Tokyo
 - [x] Performance monitor
+- [ ] API Documentation page
+- [ ] API Wizard
 - [ ] Slack integration!
 
 ### Disclaimer
