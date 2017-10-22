@@ -845,6 +845,11 @@ module.exports = {
             console.log("<Pass>");
         });
     },
+
+    formatHTMLMail: function(message){
+        return "<html><body><div>" + message + "</div></body></html>" ;
+    },
+
     notificationHandler: function(self, schema){
 
         if(self.global.env.email && schema){
@@ -857,6 +862,11 @@ module.exports = {
 
             switch(type){
                 case "email":{
+                    //Construct the message
+                    message = self.formatHTMLMail(message);
+
+                    console.log(message);
+
                     //temp email
                     let ses = new aws.SES({
                         region:'us-east-1'
@@ -868,18 +878,18 @@ module.exports = {
                         },
                         Message: {
                             Body: {
-                            Html: {
-                                Charset: 'UTF-8',
-                                Data: message
-                            },
-                            Text: {
-                                Charset: 'UTF-8',
-                                Data: 'This is the message body in text format.'
-                            }
+                                Html: {
+                                    Charset: 'UTF-8',
+                                    Data: message
+                                },
+                                /*Text: {
+                                    Charset: 'UTF-8',
+                                    Data: 'This is the message body in text format.'
+                                }*/
                             },
                             Subject: {
                             Charset: 'UTF-8',
-                            Data: 'SES Mail'
+                            Data: 'AWS ODTR [No Reply]'
                             }
                         },
                         ReturnPath: email_from,
@@ -1007,6 +1017,14 @@ module.exports = {
             console.log(self.global); 
             console.log("------------ERROR-RESULTS------------");
 
+            let message = error.message;
+
+            //Send Mail
+            self.notificationHandler(self, {
+                type: 'email',
+                message: message
+            });
+
             //Exec time
             self.performance.end = now();
             
@@ -1014,7 +1032,7 @@ module.exports = {
             self.result = {};
             self.result.result = false;
             self.result.execution = +(self.performance.end - self.performance.start).toFixed(2);
-            self.result.message = error.message;
+            self.result.message = message;
 
             self.callback(null, self.result);  
             self.cleanUp(self);
