@@ -4,6 +4,8 @@
   "description": "Time record automation.",
   "main": "handler.js",
   "scripts": {
+    "deploy": "serverless deploy", 
+    "start": "serverless invoke local -f aws_odtr -p event.json",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

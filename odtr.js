@@ -81,9 +81,12 @@ module.exports = {
                             }
                         }break;
                         case "wakeup":{
-                            actionPerformed = true;
-                            self.result.result = true;
+                            //Set status awake
                             self.result.status = 'awake';
+                            
+                            //Do site visit
+                            self.doAction(self, schema[action], null);
+                            actionPerformed = true;                            
                         }break;
                         case "error":break;
                     }
