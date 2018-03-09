@@ -18,7 +18,7 @@ var schema_cache = null;
     },
     "querystring" : {
             "password" : "*******",
-            "username" : "jp.miranda"
+            "username" : "******"
     }
 }
 */
@@ -565,7 +565,6 @@ module.exports = {
                             
                         }break;
                         case "merge":{
-                            // Miranda, Jan Paul |	Dev 5 |	Lenovo |	08:52 AM |	09:37 AM | 0.76                            
                             var value = "";
                             elements.forEach((element)=>{
                                 let val = element.text.trim();

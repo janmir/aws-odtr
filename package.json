@@ -6,7 +6,8 @@
   "scripts": {
     "deploy": "serverless deploy", 
     "start": "serverless invoke local -f aws_odtr -p event.json",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "freshtall": "npm cache clean --force && npm install"
   },
   "repository": {
     "type": "git",
